@@ -64,3 +64,28 @@ medclinic2/
    mvn -pl notification-service spring-boot:run    # port 8083
    mvn -pl document-service spring-boot:run        # port 8084
    ```
+
+### Service verification
+
+After each service starts:
+
+```bash
+# 1. Verify build
+cd backend && mvn clean install -DskipTests
+
+# 2. Health check (run while service is up)
+curl http://localhost:8761/health   # eureka-server
+curl http://localhost:8080/health   # api-gateway
+curl http://localhost:8081/health   # main-service
+curl http://localhost:8082/health   # auth-service
+curl http://localhost:8083/health   # notification-service
+curl http://localhost:8084/health   # document-service
+
+# 3. Logs (from each service directory)
+tail -f logs/eureka-server.log
+tail -f logs/api-gateway.log
+# etc.
+
+# 4. Eureka dashboard
+# Open http://localhost:8761 in browser
+```
