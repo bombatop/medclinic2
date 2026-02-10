@@ -1,0 +1,53 @@
+services:
+  postgres-main:
+    image: postgres:15-alpine
+    container_name: medclinic-postgres-main
+    environment:
+      POSTGRES_DB: main_service_db
+      POSTGRES_USER: main_user
+      POSTGRES_PASSWORD: main_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_main_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U main_user -d main_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: medclinic-postgres-auth
+    environment:
+      POSTGRES_DB: auth_service_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: medclinic-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_main_data:
+  postgres_auth_data:
+  rabbitmq_data:
