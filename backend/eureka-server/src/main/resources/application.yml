@@ -5,6 +5,11 @@ spring:
   application:
     name: eureka-server
 
+logging:
+  level:
+    root: INFO
+    com.netflix.eureka: INFO
+
 eureka:
   instance:
     hostname: localhost

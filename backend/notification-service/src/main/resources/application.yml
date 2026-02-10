@@ -10,6 +10,10 @@ spring:
     username: guest
     password: guest
 
+logging:
+  level:
+    root: INFO
+
 eureka:
   client:
     service-url:
