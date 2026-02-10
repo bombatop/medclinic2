@@ -41,7 +41,10 @@ medclinic2/
 │   ├── api-gateway/          # Routing + auth
 │   └── shared-lib/           # Common DTOs, utils
 ├── infrastructure/
-│   └── docker-compose.yml    # PostgreSQL, RabbitMQ
+│   ├── docker-compose.yml
+│   └── scripts/start.sh
+├── scripts/
+│   └── start-backend.sh
 └── README.md
 ```
 
@@ -51,18 +54,23 @@ medclinic2/
 
 2. **Start infrastructure**:
    ```bash
-   cd infrastructure && docker compose up -d
+   ./infrastructure/scripts/start.sh
+   # or: cd infrastructure && docker compose up -d
    ```
 
-3. **Build and run backend** (start Eureka first, then other services):
+3. **Build and run backend** (Eureka first, then others in separate terminals):
    ```bash
    cd backend && mvn clean install
-   mvn -pl eureka-server spring-boot:run          # port 8761
-   mvn -pl api-gateway spring-boot:run             # port 8080
-   mvn -pl main-service spring-boot:run            # port 8081
-   mvn -pl auth-service spring-boot:run            # port 8082
-   mvn -pl notification-service spring-boot:run    # port 8083
-   mvn -pl document-service spring-boot:run        # port 8084
+   ./scripts/start-backend.sh    # all in background
+   ```
+   Or manually, one per terminal:
+   ```bash
+   mvn -pl eureka-server spring-boot:run          # 8761
+   mvn -pl api-gateway spring-boot:run            # 8080
+   mvn -pl main-service spring-boot:run            # 8081
+   mvn -pl auth-service spring-boot:run           # 8082
+   mvn -pl notification-service spring-boot:run   # 8083
+   mvn -pl document-service spring-boot:run       # 8084
    ```
 
 ### Service verification
