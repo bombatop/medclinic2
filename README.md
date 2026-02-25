@@ -16,16 +16,16 @@ npm --version
 psql --version
 
 docker --version
-docker-compose --version
+docker compose version
 
 ./backend/gradlew --version
 ```
 
-If Java, Docker, or docker-compose are missing, install them with:
+If Java or Docker are missing, install them:
 
 ```bash
 sudo apt update
-sudo apt install -y openjdk-17-jdk-headless docker.io docker-compose
+sudo apt install -y openjdk-17-jdk-headless docker.io docker-compose-v2
 ```
 
 ### Project structure
@@ -58,8 +58,8 @@ medclinic2/
 2. **Start infrastructure**:
    ```bash
    ./infrastructure/scripts/start.sh
-   # or: cd infrastructure && docker compose up -d
    ```
+   (Runs `docker compose up -d` from the infrastructure directory.)
 
 3. **Build and run backend** (Eureka first, then others in separate terminals):
    ```bash
