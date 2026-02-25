@@ -18,14 +18,14 @@ psql --version
 docker --version
 docker-compose --version
 
-mvn --version
+./backend/gradlew --version
 ```
 
-If Java, Maven, Docker, or docker-compose are missing, install them with:
+If Java, Docker, or docker-compose are missing, install them with:
 
 ```bash
 sudo apt update
-sudo apt install -y openjdk-17-jdk-headless maven docker.io docker-compose
+sudo apt install -y openjdk-17-jdk-headless docker.io docker-compose
 ```
 
 ### Project structure
@@ -33,13 +33,16 @@ sudo apt install -y openjdk-17-jdk-headless maven docker.io docker-compose
 ```
 medclinic2/
 ├── backend/
-│   ├── main-service/         # CRUD: patients, appointments, doctors
-│   ├── auth-service/         # JWT authentication
-│   ├── notification-service/ # Email/SMS via RabbitMQ
-│   ├── document-service/     # PDF/Excel reports
-│   ├── eureka-server/        # Service discovery
-│   ├── api-gateway/          # Routing + auth
-│   └── shared-lib/           # Common DTOs, utils
+│   ├── gradle/               # Gradle wrapper
+│   ├── gradlew, gradle.properties
+│   ├── build.gradle.kts, settings.gradle.kts
+│   ├── main-service/        # CRUD: patients, appointments, doctors
+│   ├── auth-service/        # JWT authentication
+│   ├── notification-service/# Email/SMS via RabbitMQ
+│   ├── document-service/    # PDF/Excel reports
+│   ├── eureka-server/       # Service discovery
+│   ├── api-gateway/         # Routing + auth
+│   └── shared-lib/          # Common DTOs, utils
 ├── infrastructure/
 │   ├── docker-compose.yml
 │   └── scripts/start.sh
@@ -60,17 +63,18 @@ medclinic2/
 
 3. **Build and run backend** (Eureka first, then others in separate terminals):
    ```bash
-   cd backend && mvn clean install
+   cd backend && ./gradlew build -x test
    ./scripts/start-backend.sh    # all in background
    ```
-   Or manually, one per terminal:
+   Or manually (from `backend/`), one per terminal:
    ```bash
-   mvn -pl eureka-server spring-boot:run          # 8761
-   mvn -pl api-gateway spring-boot:run            # 8080
-   mvn -pl main-service spring-boot:run            # 8081
-   mvn -pl auth-service spring-boot:run           # 8082
-   mvn -pl notification-service spring-boot:run   # 8083
-   mvn -pl document-service spring-boot:run       # 8084
+   cd backend
+   ./gradlew :eureka-server:bootRun          # 8761
+   ./gradlew :api-gateway:bootRun            # 8080
+   ./gradlew :main-service:bootRun           # 8081
+   ./gradlew :auth-service:bootRun           # 8082
+   ./gradlew :notification-service:bootRun   # 8083
+   ./gradlew :document-service:bootRun       # 8084
    ```
 
 ### Service verification
@@ -79,7 +83,7 @@ After each service starts:
 
 ```bash
 # 1. Verify build
-cd backend && mvn clean install -DskipTests
+cd backend && ./gradlew build -x test
 
 # 2. Health check (run while service is up)
 curl http://localhost:8761/health   # eureka-server
