@@ -38,11 +38,14 @@ public class SecurityConfig {
         return http.build();
     }
 
+    // Exposes BCrypt hasher for password hashing/verification across the service
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
+    // Spring Security 6 doesn't expose this by default; we need it to call .authenticate() in AuthService.
+    // We could verify credentials manually, but this supports chaining multiple auth providers and fires security events.
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
