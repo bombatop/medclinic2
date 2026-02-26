@@ -44,9 +44,9 @@ medclinic2/
 │   ├── api-gateway/         # Routing + auth
 │   └── shared-lib/          # Common DTOs, utils
 ├── infrastructure/
-│   ├── docker-compose.yml
-│   └── scripts/start.sh
+│   └── docker-compose.yml
 ├── scripts/
+│   ├── start-infrastructure.sh
 │   └── start-backend.sh
 └── README.md
 ```
@@ -57,9 +57,8 @@ medclinic2/
 
 2. **Start infrastructure**:
    ```bash
-   ./infrastructure/scripts/start.sh
+   ./scripts/start-infrastructure.sh
    ```
-   (Runs `docker compose up -d` from the infrastructure directory.)
 
 3. **Build and run backend** (Eureka first, then others in separate terminals):
    ```bash
