@@ -1,5 +1,6 @@
 package com.medclinic.auth.service;
 
+import com.medclinic.auth.dto.ChangePasswordRequest;
 import com.medclinic.auth.dto.CreateUserRequest;
 import com.medclinic.auth.dto.UpdateUserRequest;
 import com.medclinic.auth.dto.UserResponse;
@@ -8,6 +9,7 @@ import com.medclinic.auth.exception.ResourceNotFoundException;
 import com.medclinic.auth.model.User;
 import com.medclinic.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -94,6 +96,26 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setActive(true);
+        userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getUserByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .map(UserResponse::from)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
     }
 }
