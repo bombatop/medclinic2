@@ -9,8 +9,7 @@ import com.medclinic.auth.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,14 +26,14 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(userService.getUserByUsername(userDetails.getUsername()));
+    public ResponseEntity<UserResponse> getCurrentUser(Authentication authentication) {
+        return ResponseEntity.ok(userService.getUserByUsername(authentication.getName()));
     }
 
     @PutMapping("/me/password")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<Void> changePassword(Authentication authentication,
                                                @Valid @RequestBody ChangePasswordRequest request) {
-        userService.changePassword(userDetails.getUsername(), request);
+        userService.changePassword(authentication.getName(), request);
         return ResponseEntity.noContent().build();
     }
 }
