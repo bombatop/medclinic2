@@ -1,6 +1,9 @@
 server:
   port: 8080
 
+jwt:
+  secret: 6a4f7e2b1d9c8a3f5e0b7d2c4a6f8e1b3d5c7a9f0e2b4d6c8a1f3e5b7d9c0a2
+
 logging:
   level:
     root: INFO
