@@ -32,6 +32,20 @@ public class JwtUtils {
                 .compact();
     }
 
+    public String generateRefreshToken(Long userId, String username) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + jwtProperties.getRefreshTokenExpiration());
+
+        return Jwts.builder()
+                .subject(username)
+                .claim("userId", userId)
+                .claim("type", "refresh")
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
     public Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
@@ -55,6 +69,15 @@ public class JwtUtils {
 
     public Long getUserIdFromToken(String token) {
         return parseToken(token).get("userId", Long.class);
+    }
+
+    public boolean isRefreshToken(String token) {
+        try {
+            Claims claims = parseToken(token);
+            return "refresh".equals(claims.get("type", String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public Role getRoleFromToken(String token) {
