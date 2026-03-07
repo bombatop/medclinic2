@@ -13,6 +13,14 @@ docker compose version
 
 **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) with WSL 2 backend.
 
+Node.js 20+ is required for the frontend. Install via nvm:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install 20
+```
+
 ### Project structure
 
 ```
@@ -27,6 +35,20 @@ medclinic2/
 │   ├── eureka-server/          # Service discovery
 │   ├── api-gateway/            # Routing + auth
 │   └── shared-lib/             # Common DTOs, utils
+├── frontend/
+│   ├── src/
+│   │   ├── api/                # Axios HTTP client
+│   │   ├── assets/             # CSS
+│   │   ├── components/         # Reusable Vue components
+│   │   ├── layouts/            # Page layouts (AppLayout)
+│   │   ├── router/             # Vue Router config
+│   │   ├── stores/             # Pinia state management
+│   │   ├── views/              # Page-level components
+│   │   ├── App.vue             # Root component
+│   │   └── main.ts             # App entry point
+│   ├── .env                    # API base URL config
+│   ├── package.json
+│   └── vite.config.ts
 ├── infrastructure/
 │   └── docker-compose.yml      # DB + RabbitMQ only (for local dev)
 ├── docker-compose.yml          # Full stack (infrastructure + all services)
@@ -40,7 +62,12 @@ git clone https://github.com/bombatop/medclinic2.git && cd medclinic2
 docker compose up -d --build
 ```
 
-That's it. Docker builds the JDK, compiles the code, and runs everything.
+4. **Start frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev                               # 5173
+   ```
 
 ### Services
 
@@ -74,4 +101,19 @@ docker compose up -d --build main-service
 
 # Start only infrastructure (databases + RabbitMQ)
 docker compose -f infrastructure/docker-compose.yml up -d
+
+# Frontend
+# Open http://localhost:5173 in browser
 ```
+
+### Frontend tech stack
+
+| Layer            | Choice            |
+|------------------|-------------------|
+| Framework        | Vue 3             |
+| Language         | TypeScript        |
+| Build tool       | Vite              |
+| Routing          | Vue Router        |
+| State management | Pinia             |
+| HTTP client      | Axios             |
+| UI components    | PrimeVue (Aura)   |
