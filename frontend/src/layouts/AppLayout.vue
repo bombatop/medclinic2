@@ -34,7 +34,7 @@ const menuItems = ref<MenuItem[]>([
     label: 'Logout',
     icon: 'pi pi-sign-out',
     command: () => {
-      authStore.clearToken()
+      authStore.clearTokens()
       router.push({ name: 'login' })
     },
   },
