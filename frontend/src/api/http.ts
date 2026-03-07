@@ -21,6 +21,12 @@ http.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
+      const isLoginRequest = error.config?.url?.includes('/auth/auth/login')
+      if (!isLoginRequest) {
+        import('@/router').then(({ default: router }) =>
+          router.push({ name: 'login' }),
+        )
+      }
     }
     return Promise.reject(error)
   },

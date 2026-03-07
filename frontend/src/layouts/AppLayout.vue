@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import Menubar from 'primevue/menubar'
 import Toast from 'primevue/toast'
 import type { MenuItem } from 'primevue/menuitem'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const menuItems = ref<MenuItem[]>([
   {
@@ -27,6 +29,14 @@ const menuItems = ref<MenuItem[]>([
     label: 'Doctors',
     icon: 'pi pi-user',
     command: () => router.push('/doctors'),
+  },
+  {
+    label: 'Logout',
+    icon: 'pi pi-sign-out',
+    command: () => {
+      authStore.clearToken()
+      router.push({ name: 'login' })
+    },
   },
 ])
 </script>

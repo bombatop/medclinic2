@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router'
+import { computed } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import AppLayout from './layouts/AppLayout.vue'
+
+const route = useRoute()
+const isLoginPage = computed(() => route.name === 'login')
 </script>
 
 <template>
-  <AppLayout>
+  <AppLayout v-if="!isLoginPage">
     <RouterView />
   </AppLayout>
+  <RouterView v-else />
 </template>

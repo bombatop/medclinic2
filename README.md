@@ -106,6 +106,15 @@ docker compose -f infrastructure/docker-compose.yml up -d
 # Open http://localhost:5173 in browser
 ```
 
+### Default credentials
+
+For development, the auth-service seeds an admin user:
+
+- **Username:** `admin`
+- **Password:** `admin`
+
+Change the password after first login.
+
 ### Frontend tech stack
 
 | Layer            | Choice            |
