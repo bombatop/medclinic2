@@ -9,6 +9,13 @@ spring:
     port: 5672
     username: guest
     password: guest
+  cloud:
+    stream:
+      bindings:
+        handleAppointmentEvent-in-0:
+          destination: appointment-events
+      function:
+        definition: handleAppointmentEvent
 
 logging:
   level:
