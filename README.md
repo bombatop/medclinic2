@@ -28,6 +28,14 @@ sudo apt update
 sudo apt install -y openjdk-17-jdk-headless docker.io docker-compose-v2
 ```
 
+Node.js 20+ is required for the frontend. Install via nvm:
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install 20
+```
+
 ### Project structure
 
 ```
@@ -43,6 +51,20 @@ medclinic2/
 │   ├── eureka-server/       # Service discovery
 │   ├── api-gateway/         # Routing + auth
 │   └── shared-lib/          # Common DTOs, utils
+├── frontend/
+│   ├── src/
+│   │   ├── api/             # Axios HTTP client
+│   │   ├── assets/          # CSS
+│   │   ├── components/      # Reusable Vue components
+│   │   ├── layouts/         # Page layouts (AppLayout)
+│   │   ├── router/          # Vue Router config
+│   │   ├── stores/          # Pinia state management
+│   │   ├── views/           # Page-level components
+│   │   ├── App.vue          # Root component
+│   │   └── main.ts          # App entry point
+│   ├── .env                 # API base URL config
+│   ├── package.json
+│   └── vite.config.ts
 ├── infrastructure/
 │   └── docker-compose.yml
 ├── scripts/
@@ -76,15 +98,25 @@ medclinic2/
    ./gradlew :document-service:bootRun       # 8084
    ```
 
+4. **Start frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev                               # 5173
+   ```
+
 ### Service verification
 
 After each service starts:
 
 ```bash
-# 1. Verify build
+# 1. Verify backend build
 cd backend && ./gradlew build -x test
 
-# 2. Health check (run while service is up)
+# 2. Verify frontend build
+cd frontend && npm run build
+
+# 3. Health check (run while service is up)
 curl http://localhost:8761/health   # eureka-server
 curl http://localhost:8080/health   # api-gateway
 curl http://localhost:8081/health   # main-service
@@ -92,11 +124,26 @@ curl http://localhost:8082/health   # auth-service
 curl http://localhost:8083/health   # notification-service
 curl http://localhost:8084/health   # document-service
 
-# 3. Logs (from each service directory)
+# 4. Logs (from each service directory)
 tail -f logs/eureka-server.log
 tail -f logs/api-gateway.log
 # etc.
 
-# 4. Eureka dashboard
+# 5. Eureka dashboard
 # Open http://localhost:8761 in browser
+
+# 6. Frontend
+# Open http://localhost:5173 in browser
 ```
+
+### Frontend tech stack
+
+| Layer            | Choice            |
+|------------------|-------------------|
+| Framework        | Vue 3             |
+| Language         | TypeScript        |
+| Build tool       | Vite              |
+| Routing          | Vue Router        |
+| State management | Pinia             |
+| HTTP client      | Axios             |
+| UI components    | PrimeVue (Aura)   |
