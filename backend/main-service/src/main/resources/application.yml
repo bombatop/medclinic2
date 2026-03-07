@@ -18,6 +18,11 @@ spring:
     port: 5672
     username: guest
     password: guest
+  cloud:
+    stream:
+      bindings:
+        appointment-events:
+          destination: appointment-events
 
 logging:
   level:
