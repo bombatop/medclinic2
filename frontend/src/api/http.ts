@@ -71,7 +71,8 @@ http.interceptors.response.use(
     }
 
     const refreshed = await refreshPromise
-    if (refreshed) {
+    if (refreshed && originalRequest && !originalRequest._retry) {
+      originalRequest._retry = true
       return http(originalRequest)
     }
 
