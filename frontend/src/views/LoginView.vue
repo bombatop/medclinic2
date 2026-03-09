@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from 'primevue/usetoast'
 import { login } from '@/api/auth'
+import { isBlankInput } from '@/utils/validation'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
@@ -21,7 +22,7 @@ const form = reactive({
 })
 
 async function onSubmit() {
-  if (!form.username.trim() || !form.password) {
+  if (isBlankInput(form.username) || isBlankInput(form.password)) {
     toast.add({
       severity: 'warn',
       summary: 'Validation',

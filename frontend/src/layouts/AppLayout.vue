@@ -36,6 +36,11 @@ const menuItems = ref<MenuItem[]>([
     command: () => router.push('/doctors'),
   },
   {
+    label: 'Profile',
+    icon: 'pi pi-id-card',
+    command: () => router.push('/profile'),
+  },
+  {
     label: 'Logout',
     icon: 'pi pi-sign-out',
     command: () => {
