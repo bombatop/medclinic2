@@ -49,6 +49,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── Frontend ────────────────────────────────────────────────────
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: medclinic-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
   # ── Microservices ───────────────────────────────────────────────
 
   eureka-server:

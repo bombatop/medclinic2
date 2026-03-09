@@ -13,18 +13,14 @@ docker compose version
 
 **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) with WSL 2 backend.
 
-Node.js 20+ is required for the frontend. Install via nvm:
-
-```bash
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-source ~/.bashrc
-nvm install 20
-```
-
 ### Project structure
 
 ```
 medclinic2/
+├── frontend/
+│   ├── Dockerfile              # Multi-stage build (Node + Nginx)
+│   ├── nginx.conf              # SPA routing + API proxy
+│   └── src/                    # Vue 3 + PrimeVue
 ├── backend/
 │   ├── Dockerfile              # Multi-stage build (Gradle + JRE)
 │   ├── build.gradle.kts, settings.gradle.kts
@@ -35,23 +31,9 @@ medclinic2/
 │   ├── eureka-server/          # Service discovery
 │   ├── api-gateway/            # Routing + auth
 │   └── shared-lib/             # Common DTOs, utils
-├── frontend/
-│   ├── src/
-│   │   ├── api/                # Axios HTTP client
-│   │   ├── assets/             # CSS
-│   │   ├── components/         # Reusable Vue components
-│   │   ├── layouts/            # Page layouts (AppLayout)
-│   │   ├── router/             # Vue Router config
-│   │   ├── stores/             # Pinia state management
-│   │   ├── views/              # Page-level components
-│   │   ├── App.vue             # Root component
-│   │   └── main.ts             # App entry point
-│   ├── .env                    # API base URL config
-│   ├── package.json
-│   └── vite.config.ts
 ├── infrastructure/
 │   └── docker-compose.yml      # DB + RabbitMQ only (for local dev)
-├── docker-compose.yml          # Full stack (infrastructure + all services)
+├── docker-compose.yml          # Full stack
 └── README.md
 ```
 
@@ -62,17 +44,13 @@ git clone https://github.com/bombatop/medclinic2.git && cd medclinic2
 docker compose up -d --build
 ```
 
-4. **Start frontend**:
-   ```bash
-   cd frontend
-   npm install
-   npm run dev                               # 5173
-   ```
+That's it. Open http://localhost:3000 in your browser.
 
 ### Services
 
 | Service              | Port  | URL                          |
 |----------------------|-------|------------------------------|
+| Frontend             | 3000  | http://localhost:3000         |
 | API Gateway          | 8080  | http://localhost:8080         |
 | Eureka Dashboard     | 8761  | http://localhost:8761         |
 | Main Service         | 8081  | http://localhost:8081         |
@@ -101,9 +79,6 @@ docker compose up -d --build main-service
 
 # Start only infrastructure (databases + RabbitMQ)
 docker compose -f infrastructure/docker-compose.yml up -d
-
-# Frontend
-# Open http://localhost:5173 in browser
 ```
 
 ### Default credentials
