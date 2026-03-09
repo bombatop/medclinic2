@@ -1,0 +1,159 @@
+services:
+  # ── Infrastructure ──────────────────────────────────────────────
+
+  postgres-main:
+    image: postgres:15-alpine
+    container_name: medclinic-postgres-main
+    environment:
+      POSTGRES_DB: main_service_db
+      POSTGRES_USER: main_user
+      POSTGRES_PASSWORD: main_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_main_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U main_user -d main_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: medclinic-postgres-auth
+    environment:
+      POSTGRES_DB: auth_service_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth_user -d auth_service_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: medclinic-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Microservices ───────────────────────────────────────────────
+
+  eureka-server:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: eureka-server
+    container_name: medclinic-eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8761/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  api-gateway:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: api-gateway
+    container_name: medclinic-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+
+  main-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: main-service
+    container_name: medclinic-main-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-main:5432/main_service_db
+      SPRING_RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres-main:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  auth-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: auth-service
+    container_name: medclinic-auth-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_service_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres-auth:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: notification-service
+    container_name: medclinic-notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  document-service:
+    build:
+      context: ./backend
+      args:
+        SERVICE_NAME: document-service
+    container_name: medclinic-document-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  postgres_main_data:
+  postgres_auth_data:
+  rabbitmq_data:

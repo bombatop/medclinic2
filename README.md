@@ -4,99 +4,74 @@ Internal medical clinic management system built as a microservices-based portfol
 
 ### System prerequisites
 
-Run these commands on a fresh Ubuntu system to verify tools:
+Only **Docker** is required. No Java, Gradle, or Node needed on the host.
 
 ```bash
-java -version
-javac -version
-
-node --version
-npm --version
-
-psql --version
-
 docker --version
 docker compose version
-
-./backend/gradlew --version
 ```
 
-If Java or Docker are missing, install them:
-
-```bash
-sudo apt update
-sudo apt install -y openjdk-17-jdk-headless docker.io docker-compose-v2
-```
+**Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) with WSL 2 backend.
 
 ### Project structure
 
 ```
 medclinic2/
 ├── backend/
-│   ├── gradle/               # Gradle wrapper
-│   ├── gradlew, gradle.properties
+│   ├── Dockerfile              # Multi-stage build (Gradle + JRE)
 │   ├── build.gradle.kts, settings.gradle.kts
-│   ├── main-service/        # CRUD: patients, appointments, doctors
-│   ├── auth-service/        # JWT authentication
-│   ├── notification-service/# Email/SMS via RabbitMQ
-│   ├── document-service/    # PDF/Excel reports
-│   ├── eureka-server/       # Service discovery
-│   ├── api-gateway/         # Routing + auth
-│   └── shared-lib/          # Common DTOs, utils
+│   ├── main-service/           # CRUD: patients, appointments, doctors
+│   ├── auth-service/           # JWT authentication
+│   ├── notification-service/   # Email/SMS via RabbitMQ
+│   ├── document-service/       # PDF/Excel reports
+│   ├── eureka-server/          # Service discovery
+│   ├── api-gateway/            # Routing + auth
+│   └── shared-lib/             # Common DTOs, utils
 ├── infrastructure/
-│   └── docker-compose.yml
-├── scripts/
-│   ├── start-infrastructure.sh
-│   └── start-backend.sh
+│   └── docker-compose.yml      # DB + RabbitMQ only (for local dev)
+├── docker-compose.yml          # Full stack (infrastructure + all services)
 └── README.md
 ```
 
 ### Getting started
 
-1. **Clone**: `git clone https://github.com/bombatop/medclinic2.git && cd medclinic2`
+```bash
+git clone https://github.com/bombatop/medclinic2.git && cd medclinic2
+docker compose up -d --build
+```
 
-2. **Start infrastructure**:
-   ```bash
-   ./scripts/start-infrastructure.sh
-   ```
+That's it. Docker builds the JDK, compiles the code, and runs everything.
 
-3. **Build and run backend** (Eureka first, then others in separate terminals):
-   ```bash
-   cd backend && ./gradlew build -x test
-   ./scripts/start-backend.sh    # all in background
-   ```
-   Or manually (from `backend/`), one per terminal:
-   ```bash
-   cd backend
-   ./gradlew :eureka-server:bootRun          # 8761
-   ./gradlew :api-gateway:bootRun            # 8080
-   ./gradlew :main-service:bootRun           # 8081
-   ./gradlew :auth-service:bootRun           # 8082
-   ./gradlew :notification-service:bootRun   # 8083
-   ./gradlew :document-service:bootRun       # 8084
-   ```
+### Services
 
-### Service verification
+| Service              | Port  | URL                          |
+|----------------------|-------|------------------------------|
+| API Gateway          | 8080  | http://localhost:8080         |
+| Eureka Dashboard     | 8761  | http://localhost:8761         |
+| Main Service         | 8081  | http://localhost:8081         |
+| Auth Service         | 8082  | http://localhost:8082         |
+| Notification Service | 8083  | http://localhost:8083         |
+| Document Service     | 8084  | http://localhost:8084         |
+| PostgreSQL (main)    | 5432  | main_user/main_pass           |
+| PostgreSQL (auth)    | 5433  | auth_user/auth_pass           |
+| RabbitMQ             | 5672  | guest/guest                   |
+| RabbitMQ UI          | 15672 | http://localhost:15672         |
 
-After each service starts:
+### Common commands
 
 ```bash
-# 1. Verify build
-cd backend && ./gradlew build -x test
+# Start everything
+docker compose up -d --build
 
-# 2. Health check (run while service is up)
-curl http://localhost:8761/health   # eureka-server
-curl http://localhost:8080/health   # api-gateway
-curl http://localhost:8081/health   # main-service
-curl http://localhost:8082/health   # auth-service
-curl http://localhost:8083/health   # notification-service
-curl http://localhost:8084/health   # document-service
+# Stop everything
+docker compose down
 
-# 3. Logs (from each service directory)
-tail -f logs/eureka-server.log
-tail -f logs/api-gateway.log
-# etc.
+# View logs for a service
+docker compose logs -f main-service
 
-# 4. Eureka dashboard
-# Open http://localhost:8761 in browser
+# Rebuild a single service after code changes
+docker compose up -d --build main-service
+
+# Start only infrastructure (databases + RabbitMQ)
+docker compose -f infrastructure/docker-compose.yml up -d
 ```
