@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { getCurrentUser } from '@/api/auth'
 import Menubar from 'primevue/menubar'
 import Toast from 'primevue/toast'
 import type { MenuItem } from 'primevue/menuitem'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+onMounted(() => {
+  getCurrentUser().catch(() => { /* 401 handled by interceptor */ })
+})
 
 const menuItems = ref<MenuItem[]>([
   {
@@ -34,7 +39,7 @@ const menuItems = ref<MenuItem[]>([
     label: 'Logout',
     icon: 'pi pi-sign-out',
     command: () => {
-      authStore.clearToken()
+      authStore.clearTokens()
       router.push({ name: 'login' })
     },
   },

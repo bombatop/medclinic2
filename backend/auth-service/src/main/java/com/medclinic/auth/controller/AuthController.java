@@ -3,6 +3,7 @@ package com.medclinic.auth.controller;
 import com.medclinic.auth.dto.AuthResponse;
 import com.medclinic.auth.dto.ChangePasswordRequest;
 import com.medclinic.auth.dto.LoginRequest;
+import com.medclinic.auth.dto.RefreshTokenRequest;
 import com.medclinic.auth.dto.UserResponse;
 import com.medclinic.auth.service.AuthService;
 import com.medclinic.auth.service.UserService;
@@ -23,6 +24,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.refreshToken()));
     }
 
     @GetMapping("/me")

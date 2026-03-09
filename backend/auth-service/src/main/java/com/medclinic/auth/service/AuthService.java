@@ -36,8 +36,28 @@ public class AuthService {
             throw new BadCredentialsException("Account is deactivated");
         }
 
-        String token = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String accessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
 
-        return new AuthResponse(token, user.getRole().name(), user.getUsername());
+        return new AuthResponse(accessToken, refreshToken, user.getRole().name(), user.getUsername());
+    }
+
+    public AuthResponse refresh(String refreshToken) {
+        if (!jwtUtils.isRefreshToken(refreshToken)) {
+            throw new BadCredentialsException("Invalid refresh token");
+        }
+
+        Long userId = jwtUtils.getUserIdFromToken(refreshToken);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
+
+        if (!user.isActive()) {
+            throw new BadCredentialsException("Account is deactivated");
+        }
+
+        String newAccessToken = jwtUtils.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String newRefreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
+
+        return new AuthResponse(newAccessToken, newRefreshToken, user.getRole().name(), user.getUsername());
     }
 }
