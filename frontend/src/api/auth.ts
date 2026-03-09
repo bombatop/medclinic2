@@ -15,6 +15,30 @@ export interface AuthResponse {
   username: string
 }
 
+export interface CurrentUser {
+  id: number
+  username: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string | null
+  role: string
+  active: boolean
+  createdAt: string
+}
+
+export interface UpdateProfileRequest {
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string | null
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
 export interface ApiError {
   status?: number
   message?: string
@@ -31,6 +55,14 @@ export function refresh(refreshToken: string): Promise<AuthResponse> {
     .then((res) => res.data)
 }
 
-export function getCurrentUser() {
-  return http.get('/auth/auth/me').then((res) => res.data)
+export function getCurrentUser(): Promise<CurrentUser> {
+  return http.get<CurrentUser>('/auth/auth/me').then((res) => res.data)
+}
+
+export function updateProfile(data: UpdateProfileRequest): Promise<CurrentUser> {
+  return http.put<CurrentUser>('/auth/auth/me', data).then((res) => res.data)
+}
+
+export function changePassword(data: ChangePasswordRequest): Promise<void> {
+  return http.put('/auth/auth/me/password', data).then(() => undefined)
 }
