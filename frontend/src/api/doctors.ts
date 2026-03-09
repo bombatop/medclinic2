@@ -11,10 +11,13 @@ export interface Doctor {
   createdAt: string
 }
 
-export interface CreateDoctorRequest {
-  authUserId: number
+export interface CreateDoctorForm {
+  username: string
+  password: string
   firstName: string
   lastName: string
+  email: string
+  phone?: string
   specialization?: string
 }
 
@@ -24,12 +27,42 @@ export interface UpdateDoctorRequest {
   specialization?: string
 }
 
-export function getDoctors(): Promise<Doctor[]> {
-  return http.get<Doctor[]>('/main/employees').then((res) => res.data)
+export interface AuthUser {
+  id: number
+  username: string
+  email: string
+  phone: string | null
 }
 
-export function createDoctor(data: CreateDoctorRequest): Promise<Doctor> {
-  return http.post<Doctor>('/main/employees', data).then((res) => res.data)
+export async function createDoctorWithAccount(form: CreateDoctorForm): Promise<Doctor> {
+  const user = await http
+    .post<AuthUser>('/auth/auth/users', {
+      username: form.username,
+      password: form.password,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      email: form.email,
+      phone: form.phone || null,
+      role: 'EMPLOYEE',
+    })
+    .then((res) => res.data)
+
+  return http
+    .post<Doctor>('/main/employees', {
+      authUserId: user.id,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      specialization: form.specialization || null,
+    })
+    .then((res) => res.data)
+}
+
+export function getAuthUser(userId: number): Promise<AuthUser> {
+  return http.get<AuthUser>(`/auth/auth/users/${userId}`).then((res) => res.data)
+}
+
+export function getDoctors(): Promise<Doctor[]> {
+  return http.get<Doctor[]>('/main/employees').then((res) => res.data)
 }
 
 export function updateDoctor(id: number, data: UpdateDoctorRequest): Promise<Doctor> {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import {
   activateDoctor,
-  createDoctor,
+  createDoctorWithAccount,
   deactivateDoctor,
+  getAuthUser,
   getDoctorAppointments,
   getDoctors,
   updateDoctor,
@@ -20,12 +22,13 @@ import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
-import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
+import Password from 'primevue/password'
 import Tag from 'primevue/tag'
 
 const toast = useToast()
 const confirm = useConfirm()
+const authStore = useAuthStore()
 
 const doctors = ref<Doctor[]>([])
 const loading = ref(true)
@@ -38,9 +41,14 @@ const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
 const saving = ref(false)
 const editingDoctorId = ref<number | null>(null)
+const editLoginInfo = ref<{ username: string; email: string } | null>(null)
+const loadingLoginInfo = ref(false)
 
 const form = reactive({
-  authUserId: null as number | null,
+  username: '',
+  password: '',
+  email: '',
+  phone: '',
   firstName: '',
   lastName: '',
   specialization: '',
@@ -79,28 +87,37 @@ async function loadDoctors() {
 function openCreateDialog() {
   dialogMode.value = 'create'
   editingDoctorId.value = null
-  form.authUserId = null
+  form.username = ''
+  form.password = ''
+  form.email = ''
+  form.phone = ''
   form.firstName = ''
   form.lastName = ''
   form.specialization = ''
   dialogVisible.value = true
 }
 
-function openEditDialog(doctor: Doctor) {
+async function openEditDialog(doctor: Doctor) {
   dialogMode.value = 'edit'
   editingDoctorId.value = doctor.id
-  form.authUserId = doctor.authUserId
+  editLoginInfo.value = null
   form.firstName = doctor.firstName
   form.lastName = doctor.lastName
   form.specialization = doctor.specialization ?? ''
   dialogVisible.value = true
+
+  loadingLoginInfo.value = true
+  try {
+    const user = await getAuthUser(doctor.authUserId)
+    editLoginInfo.value = { username: user.username, email: user.email }
+  } catch {
+    editLoginInfo.value = null
+  } finally {
+    loadingLoginInfo.value = false
+  }
 }
 
 async function saveDoctor() {
-  if (dialogMode.value === 'create' && !form.authUserId) {
-    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Auth user ID is required.' })
-    return
-  }
   if (isBlankInput(form.firstName)) {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'First name is required.' })
     return
@@ -109,21 +126,38 @@ async function saveDoctor() {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Last name is required.' })
     return
   }
+  if (dialogMode.value === 'create') {
+    if (isBlankInput(form.username)) {
+      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Username is required.' })
+      return
+    }
+    if (isBlankInput(form.password) || form.password.length < 6) {
+      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Password must be at least 6 characters.' })
+      return
+    }
+    if (isBlankInput(form.email)) {
+      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Email is required.' })
+      return
+    }
+  }
 
   saving.value = true
   try {
     if (dialogMode.value === 'create') {
-      const created = await createDoctor({
-        authUserId: form.authUserId!,
+      const created = await createDoctorWithAccount({
+        username: form.username.trim(),
+        password: form.password,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || undefined,
         specialization: form.specialization.trim() || undefined,
       })
       doctors.value.push(created)
       toast.add({
         severity: 'success',
         summary: 'Doctor created',
-        detail: `${created.firstName} ${created.lastName} added.`,
+        detail: `Account and profile for ${created.firstName} ${created.lastName} created.`,
       })
     } else {
       const updated = await updateDoctor(editingDoctorId.value!, {
@@ -234,7 +268,7 @@ onMounted(() => {
         <h1>Doctors</h1>
         <p class="page-subtitle">Manage doctor profiles and schedules.</p>
       </div>
-      <Button label="Add Doctor" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button v-if="authStore.isAdmin" label="Add Doctor" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
 
     <IconField class="search-field">
@@ -287,7 +321,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column style="width: 9rem">
+      <Column v-if="authStore.isAdmin" style="width: 9rem">
         <template #body="{ data }">
           <div class="row-actions">
             <Button
@@ -361,16 +395,51 @@ onMounted(() => {
       :style="{ width: '480px' }"
     >
       <div class="dialog-form">
-        <div v-if="dialogMode === 'create'" class="field">
-          <label for="dlg-authUserId">Auth user ID *</label>
-          <InputNumber
-            id="dlg-authUserId"
-            v-model="form.authUserId"
-            :disabled="saving"
-            :useGrouping="false"
-            placeholder="User ID from auth service"
-          />
-        </div>
+        <template v-if="dialogMode === 'edit'">
+          <div class="login-info">
+            <div v-if="loadingLoginInfo" class="login-info-loading">
+              <i class="pi pi-spin pi-spinner" /> Loading account info...
+            </div>
+            <template v-else-if="editLoginInfo">
+              <div class="login-info-row">
+                <span class="login-info-label">Login:</span>
+                <span>{{ editLoginInfo.username }}</span>
+              </div>
+              <div class="login-info-row">
+                <span class="login-info-label">Email:</span>
+                <span>{{ editLoginInfo.email }}</span>
+              </div>
+            </template>
+          </div>
+        </template>
+        <template v-if="dialogMode === 'create'">
+          <p class="dialog-section">Account</p>
+          <div class="field">
+            <label for="dlg-username">Username *</label>
+            <InputText id="dlg-username" v-model="form.username" :disabled="saving" />
+          </div>
+          <div class="field">
+            <label for="dlg-password">Password *</label>
+            <Password
+              id="dlg-password"
+              v-model="form.password"
+              :disabled="saving"
+              toggle-mask
+              :feedback="false"
+              input-class="w-full"
+              class="w-full"
+            />
+          </div>
+          <div class="field">
+            <label for="dlg-email">Email *</label>
+            <InputText id="dlg-email" v-model="form.email" :disabled="saving" />
+          </div>
+          <div class="field">
+            <label for="dlg-phone">Phone</label>
+            <InputText id="dlg-phone" v-model="form.phone" :disabled="saving" />
+          </div>
+          <p class="dialog-section">Profile</p>
+        </template>
         <div class="field">
           <label for="dlg-firstName">First name *</label>
           <InputText id="dlg-firstName" v-model="form.firstName" :disabled="saving" />
@@ -481,8 +550,46 @@ onMounted(() => {
 }
 
 .dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-inputnumber) {
+.dialog-form .field :deep(.p-password) {
   width: 100%;
+}
+
+.login-info {
+  background: var(--p-surface-100);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.login-info-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+.login-info-row {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.login-info-label {
+  color: var(--p-text-muted-color);
+  min-width: 3rem;
+}
+
+.dialog-section {
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--p-text-muted-color);
+  border-bottom: 1px solid var(--p-surface-border);
+  padding-bottom: 0.375rem;
 }
 
 @media (max-width: 768px) {
