@@ -60,12 +60,19 @@ public class ClientService {
             client.setPhone(request.phone());
         }
         if (request.email() != null) {
-            client.setEmail(request.email());
+            client.setEmail(request.email().isBlank() ? null : request.email());
         }
         if (request.notes() != null) {
-            client.setNotes(request.notes());
+            client.setNotes(request.notes().isBlank() ? null : request.notes());
         }
 
         return ClientResponse.from(clientRepository.save(client));
+    }
+
+    @Transactional
+    public void deleteClient(Long id) {
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
+        clientRepository.delete(client);
     }
 }
