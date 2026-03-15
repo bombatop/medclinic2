@@ -27,3 +27,9 @@ This project uses Cursor heavily. When working here (with any account), follow t
 
 See more detailed rules in `.cursor/rules/`.
 
+### How Cursor uses `.cursor/rules/`
+
+- **Automatic**: Rules in `.cursor/rules/` are Project Rules. Each file has frontmatter (`description`, `globs`, `alwaysApply`). Cursor applies them when relevant (e.g. when you edit files matching the globs, or when the description matches the task). `ai-collaboration.md` is set to **Always Apply** so planning and scope guidance is always in context.
+- **Manual**: In Chat, type `@` and pick a rule (e.g. `@domain-rules.md` or `@.cursor/rules/domain-rules.md`) to attach it to the conversation.
+- **Settings**: Open **Cursor Settings → Rules** to see project rules and toggle them if needed.
+

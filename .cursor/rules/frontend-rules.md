@@ -1,3 +1,9 @@
+---
+description: "Vue 3, PrimeVue, Vite, TypeScript, views, API clients, DataTable, and frontend structure for MedClinic 2"
+alwaysApply: false
+globs: ["frontend/**/*.{vue,ts,js}"]
+---
+
 ## Frontend rules (Vue + PrimeVue)
 
 These rules describe patterns for the Vue 3 frontend under `frontend/`.

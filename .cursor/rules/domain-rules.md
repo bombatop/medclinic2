@@ -1,3 +1,9 @@
+---
+description: "Business logic, auth roles, user lifecycle, patients, employees, appointments, and domain flows for MedClinic 2"
+alwaysApply: false
+globs: ["backend/**/*.java", "frontend/src/**/*.{ts,vue}"]
+---
+
 ## Domain rules (draft)
 
 > This file captures **business logic and flows** as they exist today. Treat it as documentation to guide future changes. The project owner should review any modifications carefully.

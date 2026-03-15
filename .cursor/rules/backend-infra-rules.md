@@ -1,3 +1,9 @@
+---
+description: "Backend microservices layout, Gradle, Spring Boot, config, error handling, eventing, and testing for MedClinic 2"
+alwaysApply: false
+globs: ["backend/**/*.{java,kts,yml,yaml}"]
+---
+
 ## Backend & infrastructure rules (non‑domain)
 
 These rules describe **how** the backend is structured and how services should interact, without encoding business/domain logic.

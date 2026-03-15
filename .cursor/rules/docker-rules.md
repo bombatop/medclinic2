@@ -1,3 +1,9 @@
+---
+description: "Docker Compose, Dockerfiles, Postgres, RabbitMQ, and container setup for MedClinic 2"
+alwaysApply: false
+globs: ["docker-compose*.yml", "**/Dockerfile*", "backend/**/application*.yml"]
+---
+
 ## Docker & infrastructure rules
 
 These rules describe how to run MedClinic 2 via Docker and how to extend the infrastructure.
