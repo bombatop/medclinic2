@@ -64,6 +64,13 @@ public class AppointmentService {
     }
 
     @Transactional(readOnly = true)
+    public List<AppointmentResponse> getAllAppointments() {
+        return appointmentRepository.findAll().stream()
+                .map(AppointmentResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByEmployee(Long employeeId) {
         return appointmentRepository.findByEmployeeId(employeeId).stream()
                 .map(AppointmentResponse::from)
