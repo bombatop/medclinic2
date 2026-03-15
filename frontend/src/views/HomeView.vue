@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { getAppointments } from '@/api/appointments'
 import { getDoctors } from '@/api/doctors'
 import { getPatients } from '@/api/patients'
 import Card from 'primevue/card'
-
-const router = useRouter()
 
 const patientsCount = ref<number | null>(null)
 const doctorsCount = ref<number | null>(null)
@@ -40,10 +37,6 @@ async function loadCounts() {
   }
 }
 
-function goTo(path: string) {
-  router.push(path)
-}
-
 onMounted(() => {
   void loadCounts()
 })
@@ -53,45 +46,51 @@ onMounted(() => {
   <div>
     <h1>Dashboard</h1>
     <div class="dashboard-grid">
-      <Card class="dashboard-card" @click="goTo('/patients')">
-        <template #title>
-          <span class="card-title">
-            <i class="pi pi-users" />
-            Patients
-          </span>
-        </template>
-        <template #content>
-          <p class="card-desc">Manage patient records and history.</p>
-          <p v-if="patientsCount !== null" class="card-count">{{ patientsCount }} patients</p>
-        </template>
-      </Card>
-      <Card class="dashboard-card" @click="goTo('/appointments')">
-        <template #title>
-          <span class="card-title">
-            <i class="pi pi-calendar" />
-            Appointments
-          </span>
-        </template>
-        <template #content>
-          <p class="card-desc">Schedule and track appointments.</p>
-          <p v-if="appointmentsCount !== null" class="card-count">
-            {{ appointmentsCount }} total
-            <template v-if="todayCount !== null && todayCount > 0"> · {{ todayCount }} today</template>
-          </p>
-        </template>
-      </Card>
-      <Card class="dashboard-card" @click="goTo('/doctors')">
-        <template #title>
-          <span class="card-title">
-            <i class="pi pi-user" />
-            Doctors
-          </span>
-        </template>
-        <template #content>
-          <p class="card-desc">View doctor schedules and specializations.</p>
-          <p v-if="doctorsCount !== null" class="card-count">{{ doctorsCount }} doctors</p>
-        </template>
-      </Card>
+      <router-link to="/patients" class="dashboard-card-link">
+        <Card class="dashboard-card">
+          <template #title>
+            <span class="card-title">
+              <i class="pi pi-users" />
+              Patients
+            </span>
+          </template>
+          <template #content>
+            <p class="card-desc">Manage patient records and history.</p>
+            <p v-if="patientsCount !== null" class="card-count">{{ patientsCount }} patients</p>
+          </template>
+        </Card>
+      </router-link>
+      <router-link to="/appointments" class="dashboard-card-link">
+        <Card class="dashboard-card">
+          <template #title>
+            <span class="card-title">
+              <i class="pi pi-calendar" />
+              Appointments
+            </span>
+          </template>
+          <template #content>
+            <p class="card-desc">Schedule and track appointments.</p>
+            <p v-if="appointmentsCount !== null" class="card-count">
+              {{ appointmentsCount }} total
+              <template v-if="todayCount !== null && todayCount > 0"> · {{ todayCount }} today</template>
+            </p>
+          </template>
+        </Card>
+      </router-link>
+      <router-link to="/doctors" class="dashboard-card-link">
+        <Card class="dashboard-card">
+          <template #title>
+            <span class="card-title">
+              <i class="pi pi-user" />
+              Doctors
+            </span>
+          </template>
+          <template #content>
+            <p class="card-desc">View doctor schedules and specializations.</p>
+            <p v-if="doctorsCount !== null" class="card-count">{{ doctorsCount }} doctors</p>
+          </template>
+        </Card>
+      </router-link>
     </div>
   </div>
 </template>
@@ -102,6 +101,11 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
   margin-top: 1.5rem;
+}
+
+.dashboard-card-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 .dashboard-card {
