@@ -36,12 +36,19 @@ const router = createRouter({
       name: 'profile',
       component: () => import('../views/ProfileView.vue'),
     },
+    {
+      path: '/admin/users',
+      name: 'users',
+      component: () => import('../views/UsersView.vue'),
+      meta: { adminOnly: true },
+    },
   ],
 })
 
 router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   const isPublic = to.meta.public === true
+  const isAdminOnly = to.meta.adminOnly === true
 
   if (isPublic && authStore.isAuthenticated) {
     next({ name: 'home' })
@@ -49,6 +56,10 @@ router.beforeEach((to, _from, next) => {
   }
   if (!isPublic && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })
+    return
+  }
+  if (isAdminOnly && !authStore.isAdmin) {
+    next({ name: 'home' })
     return
   }
   next()
