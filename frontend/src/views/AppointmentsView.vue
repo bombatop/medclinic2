@@ -783,6 +783,7 @@ onMounted(() => {
             optionLabel="label"
             optionValue="value"
             placeholder="Select doctor"
+            showClear
             :disabled="saving"
             class="w-full"
           />
@@ -796,6 +797,7 @@ onMounted(() => {
             optionLabel="label"
             optionValue="value"
             placeholder="Select patient"
+            showClear
             :disabled="saving"
             class="w-full"
           />
@@ -819,6 +821,7 @@ onMounted(() => {
             :options="DURATION_OPTIONS"
             optionLabel="label"
             optionValue="value"
+            showClear
             :disabled="saving"
             class="w-full"
           />
@@ -870,6 +873,7 @@ onMounted(() => {
             optionLabel="label"
             optionValue="value"
             placeholder="Select doctor"
+            showClear
             :disabled="saving"
             class="w-full"
           />
@@ -883,6 +887,7 @@ onMounted(() => {
             optionLabel="label"
             optionValue="value"
             placeholder="Select patient"
+            showClear
             :disabled="saving"
             class="w-full"
           />
@@ -906,6 +911,7 @@ onMounted(() => {
             :options="DURATION_OPTIONS"
             optionLabel="label"
             optionValue="value"
+            showClear
             :disabled="saving"
             class="w-full"
           />
