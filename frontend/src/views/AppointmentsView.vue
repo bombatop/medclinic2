@@ -43,7 +43,7 @@ const filterDateFrom = ref<Date | null>(null)
 const filterDateTo = ref<Date | null>(null)
 
 const viewMode = ref<'table' | 'timetable'>('timetable')
-const timetableScope = ref<'day' | 'week'>('week')
+const timetableScope = ref<'day' | 'week'>('day')
 const timetableAppointments = ref<Appointment[]>([])
 const timetableLoading = ref(false)
 
@@ -203,30 +203,65 @@ function reloadCurrentView() {
   void loadForCurrentView()
 }
 
+function applyTimetableScopeToFilters() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (timetableScope.value === 'day') {
+    filterDateFrom.value = new Date(today)
+    filterDateTo.value = new Date(today)
+  } else {
+    filterDateFrom.value = new Date(today)
+    const end = new Date(today)
+    end.setDate(end.getDate() + 7)
+    filterDateTo.value = end
+  }
+}
+
+watch(viewMode, (mode) => {
+  if (mode === 'timetable') applyTimetableScopeToFilters()
+})
+
+watch(filterDateFrom, (from) => {
+  if (viewMode.value === 'timetable' && timetableScope.value === 'day') {
+    filterDateTo.value = from ? new Date(from) : null
+  }
+})
+
 watch(
   [viewMode, timetableScope, filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo],
   reloadCurrentView,
 )
 
 const timetableFrom = computed(() => {
+  if (filterDateFrom.value) {
+    const d = new Date(filterDateFrom.value)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   return d
 })
 
 const timetableTo = computed(() => {
+  if (filterDateTo.value) {
+    const d = new Date(filterDateTo.value)
+    d.setHours(23, 59, 59, 999)
+    return d
+  }
   const d = new Date(timetableFrom.value)
-  d.setDate(d.getDate() + (timetableScope.value === 'week' ? 8 : 1))
+  d.setDate(d.getDate() + 1)
   return d
 })
 
 const timetableDays = computed(() => {
   const days: Date[] = []
-  const count = timetableScope.value === 'week' ? 8 : 1
-  for (let i = 0; i < count; i++) {
-    const d = new Date(timetableFrom.value)
-    d.setDate(d.getDate() + i)
-    days.push(d)
+  const start = new Date(timetableFrom.value)
+  start.setHours(0, 0, 0, 0)
+  const end = new Date(timetableTo.value)
+  end.setHours(0, 0, 0, 0)
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    days.push(new Date(d))
   }
   return days
 })
@@ -291,17 +326,9 @@ async function loadTimetableAppointments() {
   if (timetableLoading.value) return
   timetableLoading.value = true
   try {
-    const from = new Date(timetableFrom.value)
-    from.setHours(0, 0, 0, 0)
-    const to = new Date(timetableTo.value)
-    to.setHours(23, 59, 59, 999)
     const res = await getAppointments(
       { page: 0, size: 500 },
-      {
-        ...activeFilters.value,
-        from: toLocalISO(from),
-        to: toLocalISO(to),
-      },
+      activeFilters.value,
     )
     timetableAppointments.value = res.content
   } catch {
@@ -487,6 +514,7 @@ function statusSeverity(status: string) {
 
 onMounted(() => {
   void loadDoctorsAndPatients()
+  if (viewMode.value === 'timetable') applyTimetableScopeToFilters()
   reloadCurrentView()
 })
 </script>
@@ -504,30 +532,35 @@ onMounted(() => {
     <div class="filters">
       <Select
         v-model="filterDoctor"
-        :options="[{ label: 'All doctors', value: null }, ...doctorOptions]"
+        :options="doctorOptions"
         optionLabel="label"
         optionValue="value"
         placeholder="Doctor"
+        showClear
         class="filter-select"
       />
       <Select
         v-model="filterPatient"
-        :options="[{ label: 'All patients', value: null }, ...patientOptions]"
+        :options="patientOptions"
         optionLabel="label"
         optionValue="value"
         placeholder="Patient"
+        showClear
         class="filter-select"
       />
       <DatePicker
         v-model="filterDateFrom"
         placeholder="From date"
         :show-time="false"
+        showClear
         class="filter-date"
       />
       <DatePicker
         v-model="filterDateTo"
         placeholder="To date"
         :show-time="false"
+        :show-clear="!(viewMode === 'timetable' && timetableScope === 'day')"
+        :disabled="viewMode === 'timetable' && timetableScope === 'day'"
         class="filter-date"
       />
       <Select
@@ -536,11 +569,12 @@ onMounted(() => {
         optionLabel="label"
         optionValue="value"
         placeholder="Status"
+        showClear
         class="filter-select"
       />
       <IconField class="search-field">
         <InputIcon class="pi pi-search" />
-        <InputText v-model="search" placeholder="Search by patient or doctor..." />
+        <InputText v-model="search" placeholder="Search in loaded results..." />
       </IconField>
       <div class="view-toggle">
         <Button
@@ -561,13 +595,13 @@ onMounted(() => {
           label="Day"
           :severity="timetableScope === 'day' ? 'primary' : 'secondary'"
           size="small"
-          @click="timetableScope = 'day'"
+          @click="timetableScope = 'day'; applyTimetableScopeToFilters()"
         />
         <Button
           label="Week"
           :severity="timetableScope === 'week' ? 'primary' : 'secondary'"
           size="small"
-          @click="timetableScope = 'week'"
+          @click="timetableScope = 'week'; applyTimetableScopeToFilters()"
         />
       </div>
     </div>
