@@ -1,7 +1,7 @@
 ---
 description: "Docker Compose, Dockerfiles, Postgres, RabbitMQ, and container setup for MedClinic 2"
 alwaysApply: false
-globs: ["docker-compose*.yml", "**/Dockerfile*", "backend/**/application*.yml"]
+globs: ["docker-compose*.yml", "**/Dockerfile*", "backend/**/*", "frontend/src/**/*"]
 ---
 
 ## Docker & infrastructure rules
@@ -68,4 +68,20 @@ When modifying frontend assets:
   - Datastores: use built‑in health commands (e.g. `pg_isready` for Postgres).
 - Use `depends_on` with `condition: service_healthy` sparingly:
   - Use it when a service truly cannot start without a dependency (e.g. API gateway depends on Eureka).
+
+### 6. Rebuild and restart after code changes
+
+**After completing code changes** to any service that runs in Docker, rebuild and restart that service so the user can test. Do not skip this step.
+
+1. **Rebuild** if the change affects the image (config, sources, assets, Dockerfile):
+   - `docker compose build <service-name>`
+2. **Restart** so the container uses the new image:
+   - `docker compose up -d <service-name>` (after build)
+3. One-liner: `docker compose up -d --build <service-name>`
+
+**Service mapping:**
+- `frontend/**` (Vue, TS, CSS, etc.) → `frontend`
+- `backend/api-gateway/**` → `api-gateway`
+- `backend/main-service/**` → `main-service`
+- `backend/auth-service/**` → `auth-service`
 
