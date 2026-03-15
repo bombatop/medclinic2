@@ -15,6 +15,8 @@ These rules describe **how AI should work in this repo**, independent of any ind
 
 ### 2. Git & commits
 
+- **Merge messages**: Use the format `Merge <source-branch> into <target-branch>` (e.g. `Merge refresh-token into frontend`, `Merge rules-config into frontend`).
+- **Always merge with `--no-ff`** so a merge commit is created; never fast-forward when merging feature branches.
 - Keep commits **small and coherent**:
   - One behavioral change or feature per commit.
   - Avoid mixing infra/formatting with business logic in the same commit.
