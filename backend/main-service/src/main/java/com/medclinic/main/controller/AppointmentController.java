@@ -25,6 +25,11 @@ public class AppointmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(appointmentService.createAppointment(request));
     }
 
+    @GetMapping
+    public ResponseEntity<List<AppointmentResponse>> getAllAppointments() {
+        return ResponseEntity.ok(appointmentService.getAllAppointments());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<AppointmentResponse> getAppointment(@PathVariable Long id) {
         return ResponseEntity.ok(appointmentService.getAppointmentById(id));
