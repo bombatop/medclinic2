@@ -33,7 +33,7 @@ const lazyParams = ref({
   first: 0,
   rows: 10,
   sortField: 'startTime' as string | null,
-  sortOrder: 1 as number,
+  sortOrder: -1 as number,
 })
 const search = ref('')
 const filterDoctor = ref<number | null>(null)
@@ -162,9 +162,17 @@ async function loadAppointments() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const backendSortField =
+      sortField === 'clientName'
+        ? 'client.lastName'
+        : sortField === 'employeeName'
+          ? 'employee.lastName'
+          : sortField
     const sort =
-      lazyParams.value.sortField != null
-        ? `${lazyParams.value.sortField},${lazyParams.value.sortOrder === 1 ? 'asc' : 'desc'}`
+      sortField != null && sortOrder !== 0
+        ? `${backendSortField},${sortOrder === 1 ? 'asc' : 'desc'}`
         : undefined
     const res = await getAppointments(
       { page, size: lazyParams.value.rows, sort },
@@ -183,12 +191,22 @@ async function loadAppointments() {
   }
 }
 
-function onPage(event: { first: number; rows: number; sortField?: string; sortOrder?: number }) {
+function onPage(event: { first: number; rows: number }) {
   lazyParams.value = {
     first: event.first,
     rows: event.rows,
-    sortField: event.sortField ?? lazyParams.value.sortField,
-    sortOrder: event.sortOrder ?? lazyParams.value.sortOrder,
+    sortField: lazyParams.value.sortField,
+    sortOrder: lazyParams.value.sortOrder,
+  }
+  void loadAppointments()
+}
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
   }
   void loadAppointments()
 }
@@ -621,6 +639,7 @@ onMounted(() => {
       stripedRows
       removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No appointments found.</div>
@@ -638,9 +657,9 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column field="clientName" header="Patient" sortable />
+      <Column field="clientName" header="Patient" sortable sortField="clientName" />
 
-      <Column field="employeeName" header="Doctor" sortable />
+      <Column field="employeeName" header="Doctor" sortable sortField="employeeName" />
 
       <Column header="Status" sortable sortField="status" style="width: 8rem">
         <template #body="{ data }">
