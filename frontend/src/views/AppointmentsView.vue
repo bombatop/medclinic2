@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   createAppointment,
   getAppointments,
@@ -24,21 +24,48 @@ import Textarea from 'primevue/textarea'
 const toast = useToast()
 
 const appointments = ref<Appointment[]>([])
+const totalRecords = ref(0)
 const doctors = ref<Doctor[]>([])
 const patients = ref<Patient[]>([])
 const loading = ref(true)
+const lazyParams = ref({ first: 0, rows: 10 })
 const search = ref('')
+const filterDoctor = ref<number | null>(null)
+const filterPatient = ref<number | null>(null)
 const filterStatus = ref<string | null>(null)
+const filterDateFrom = ref<Date | null>(null)
+const filterDateTo = ref<Date | null>(null)
+
+const viewMode = ref<'table' | 'timetable'>('timetable')
+const timetableScope = ref<'day' | 'week'>('week')
+const timetableAppointments = ref<Appointment[]>([])
+const timetableLoading = ref(false)
 
 const dialogVisible = ref(false)
 const saving = ref(false)
+
+const DURATION_OPTIONS = [
+  { label: '15 min', value: 15 },
+  { label: '30 min', value: 30 },
+  { label: '45 min', value: 45 },
+  { label: '1 hour', value: 60 },
+  { label: '1.5 hours', value: 90 },
+  { label: '2 hours', value: 120 },
+]
 
 const form = reactive({
   employeeId: null as number | null,
   clientId: null as number | null,
   startTime: null as Date | null,
-  endTime: null as Date | null,
+  durationMinutes: 30,
   notes: '',
+})
+
+const calculatedEndTime = computed(() => {
+  if (!form.startTime) return null
+  const end = new Date(form.startTime)
+  end.setMinutes(end.getMinutes() + form.durationMinutes)
+  return end
 })
 
 const doctorOptions = computed(() =>
@@ -74,10 +101,34 @@ const filteredAppointments = computed(() => {
       return haystack.includes(q)
     })
   }
-  if (filterStatus.value) {
-    list = list.filter((a) => a.status === filterStatus.value)
-  }
   return list
+})
+
+function toLocalISO(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+const activeFilters = computed(() => {
+  let from: string | undefined
+  let to: string | undefined
+  if (filterDateFrom.value) {
+    const d = new Date(filterDateFrom.value)
+    d.setHours(0, 0, 0, 0)
+    from = toLocalISO(d)
+  }
+  if (filterDateTo.value) {
+    const d = new Date(filterDateTo.value)
+    d.setHours(23, 59, 59, 999)
+    to = toLocalISO(d)
+  }
+  return {
+    employeeId: filterDoctor.value ?? undefined,
+    clientId: filterPatient.value ?? undefined,
+    status: filterStatus.value ?? undefined,
+    from,
+    to,
+  }
 })
 
 function getErrorMessage(err: unknown, fallback: string): string {
@@ -88,7 +139,13 @@ function getErrorMessage(err: unknown, fallback: string): string {
 async function loadAppointments() {
   loading.value = true
   try {
-    appointments.value = await getAppointments()
+    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const res = await getAppointments(
+      { page, size: lazyParams.value.rows },
+      activeFilters.value,
+    )
+    appointments.value = res.content
+    totalRecords.value = res.totalElements
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
@@ -100,11 +157,104 @@ async function loadAppointments() {
   }
 }
 
+function onPage(event: { first: number; rows: number }) {
+  lazyParams.value = { first: event.first, rows: event.rows }
+  void loadAppointments()
+}
+
+function onFiltersChange() {
+  lazyParams.value = { first: 0, rows: lazyParams.value.rows }
+  void loadAppointments()
+}
+
+watch([filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo], onFiltersChange)
+
+const timetableFrom = computed(() => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+})
+
+const timetableTo = computed(() => {
+  const d = new Date(timetableFrom.value)
+  d.setDate(d.getDate() + (timetableScope.value === 'week' ? 8 : 1))
+  return d
+})
+
+const timetableDays = computed(() => {
+  const days: Date[] = []
+  const count = timetableScope.value === 'week' ? 8 : 1
+  for (let i = 0; i < count; i++) {
+    const d = new Date(timetableFrom.value)
+    d.setDate(d.getDate() + i)
+    days.push(d)
+  }
+  return days
+})
+
+const TIME_SLOTS = (() => {
+  const slots: string[] = []
+  for (let h = 7; h <= 19; h++) {
+    slots.push(`${h.toString().padStart(2, '0')}:00`)
+    slots.push(`${h.toString().padStart(2, '0')}:30`)
+  }
+  return slots
+})()
+
+function handleTimetableBlockClick(apt: Appointment) {
+  if (apt.status === 'SCHEDULED') void changeStatus(apt, 'IN_PROGRESS')
+  else if (apt.status === 'IN_PROGRESS') void changeStatus(apt, 'COMPLETED')
+}
+
+function getAppointmentsForCell(day: Date, slotStart: string): Appointment[] {
+  const [h, m] = slotStart.split(':').map(Number)
+  const cellStart = new Date(day)
+  cellStart.setHours(h, m, 0, 0)
+  const cellEnd = new Date(cellStart)
+  cellEnd.setMinutes(cellEnd.getMinutes() + 30)
+  return timetableAppointments.value.filter((a) => {
+    const start = new Date(a.startTime)
+    return start >= cellStart && start < cellEnd
+  })
+}
+
+async function loadTimetableAppointments() {
+  if (viewMode.value !== 'timetable') return
+  timetableLoading.value = true
+  try {
+    const from = new Date(timetableFrom.value)
+    from.setHours(0, 0, 0, 0)
+    const to = new Date(timetableTo.value)
+    to.setHours(23, 59, 59, 999)
+    const res = await getAppointments(
+      { page: 0, size: 500 },
+      {
+        ...activeFilters.value,
+        from: toLocalISO(from),
+        to: toLocalISO(to),
+      },
+    )
+    timetableAppointments.value = res.content
+  } catch {
+    timetableAppointments.value = []
+  } finally {
+    timetableLoading.value = false
+  }
+}
+
+watch([viewMode, timetableScope], () => {
+  if (viewMode.value === 'timetable') void loadTimetableAppointments()
+  else void loadAppointments()
+})
+
 async function loadDoctorsAndPatients() {
   try {
-    const [docList, patList] = await Promise.all([getDoctors(), getPatients()])
-    doctors.value = docList
-    patients.value = patList
+    const [docRes, patRes] = await Promise.all([
+      getDoctors({ page: 0, size: 500 }),
+      getPatients({ page: 0, size: 500 }),
+    ])
+    doctors.value = docRes.content
+    patients.value = patRes.content
   } catch {
     doctors.value = []
     patients.value = []
@@ -115,7 +265,7 @@ function openCreateDialog() {
   form.employeeId = null
   form.clientId = null
   form.startTime = null
-  form.endTime = null
+  form.durationMinutes = 30
   form.notes = ''
   dialogVisible.value = true
 }
@@ -138,12 +288,9 @@ async function saveAppointment() {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
     return
   }
-  if (!form.endTime) {
-    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
-    return
-  }
-  if (form.endTime <= form.startTime) {
-    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time must be after start time.' })
+  const endTime = calculatedEndTime.value
+  if (!endTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Invalid duration.' })
     return
   }
 
@@ -153,10 +300,14 @@ async function saveAppointment() {
       employeeId: form.employeeId,
       clientId: form.clientId,
       startTime: toLocalISOString(form.startTime),
-      endTime: toLocalISOString(form.endTime),
+      endTime: toLocalISOString(endTime),
       notes: form.notes.trim() || undefined,
     })
-    appointments.value.push(created)
+    totalRecords.value += 1
+    appointments.value = [created, ...appointments.value].slice(0, lazyParams.value.rows)
+    if (viewMode.value === 'timetable') {
+      timetableAppointments.value = [created, ...timetableAppointments.value]
+    }
     toast.add({
       severity: 'success',
       summary: 'Appointment created',
@@ -179,6 +330,8 @@ async function changeStatus(apt: Appointment, status: Appointment['status']) {
     const updated = await updateAppointmentStatus(apt.id, status)
     const idx = appointments.value.findIndex((a) => a.id === updated.id)
     if (idx >= 0) appointments.value[idx] = updated
+    const tidx = timetableAppointments.value.findIndex((a) => a.id === updated.id)
+    if (tidx >= 0) timetableAppointments.value[tidx] = updated
     toast.add({
       severity: 'success',
       summary: 'Status updated',
@@ -212,8 +365,12 @@ function statusSeverity(status: string) {
 }
 
 onMounted(() => {
-  void loadAppointments()
   void loadDoctorsAndPatients()
+  if (viewMode.value === 'timetable') {
+    void loadTimetableAppointments()
+  } else {
+    void loadAppointments()
+  }
 })
 </script>
 
@@ -228,29 +385,89 @@ onMounted(() => {
     </div>
 
     <div class="filters">
-      <IconField class="search-field">
-        <InputIcon class="pi pi-search" />
-        <InputText v-model="search" placeholder="Search by patient or doctor..." />
-      </IconField>
+      <Select
+        v-model="filterDoctor"
+        :options="[{ label: 'All doctors', value: null }, ...doctorOptions]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Doctor"
+        class="filter-select"
+      />
+      <Select
+        v-model="filterPatient"
+        :options="[{ label: 'All patients', value: null }, ...patientOptions]"
+        optionLabel="label"
+        optionValue="value"
+        placeholder="Patient"
+        class="filter-select"
+      />
+      <DatePicker
+        v-model="filterDateFrom"
+        placeholder="From date"
+        :show-time="false"
+        class="filter-date"
+      />
+      <DatePicker
+        v-model="filterDateTo"
+        placeholder="To date"
+        :show-time="false"
+        class="filter-date"
+      />
       <Select
         v-model="filterStatus"
         :options="statusOptions"
         optionLabel="label"
         optionValue="value"
         placeholder="Status"
-        class="status-filter"
+        class="filter-select"
       />
+      <IconField class="search-field">
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="search" placeholder="Search by patient or doctor..." />
+      </IconField>
+      <div class="view-toggle">
+        <Button
+          label="Table"
+          :severity="viewMode === 'table' ? 'primary' : 'secondary'"
+          size="small"
+          @click="viewMode = 'table'"
+        />
+        <Button
+          label="Timetable"
+          :severity="viewMode === 'timetable' ? 'primary' : 'secondary'"
+          size="small"
+          @click="viewMode = 'timetable'"
+        />
+      </div>
+      <div v-if="viewMode === 'timetable'" class="scope-toggle">
+        <Button
+          label="Day"
+          :severity="timetableScope === 'day' ? 'primary' : 'secondary'"
+          size="small"
+          @click="timetableScope = 'day'"
+        />
+        <Button
+          label="Week"
+          :severity="timetableScope === 'week' ? 'primary' : 'secondary'"
+          size="small"
+          @click="timetableScope = 'week'"
+        />
+      </div>
     </div>
 
+    <div v-if="viewMode === 'table'" class="table-view">
     <DataTable
       :value="filteredAppointments"
       :loading="loading"
+      :lazy="true"
+      :totalRecords="totalRecords"
       dataKey="id"
       paginator
-      :rows="10"
+      :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
+      @page="onPage"
     >
       <template #empty>
         <div class="table-empty">No appointments found.</div>
@@ -320,6 +537,50 @@ onMounted(() => {
         </template>
       </Column>
     </DataTable>
+    </div>
+
+    <div v-else class="timetable-view">
+      <div v-if="timetableLoading" class="timetable-loading">
+        <i class="pi pi-spin pi-spinner" />
+        Loading timetable...
+      </div>
+      <div v-else class="timetable-grid">
+        <div class="timetable-header" :style="{ '--day-count': timetableDays.length }">
+          <div class="timetable-corner">Time</div>
+          <div
+            v-for="day in timetableDays"
+            :key="day.toISOString()"
+            class="timetable-day-header"
+          >
+            {{ formatDate(day.toISOString()) }}
+          </div>
+        </div>
+        <div
+          v-for="slot in TIME_SLOTS"
+          :key="slot"
+          class="timetable-row"
+          :style="{ '--day-count': timetableDays.length }"
+        >
+          <div class="timetable-slot-label">{{ slot }}</div>
+          <div
+            v-for="day in timetableDays"
+            :key="`${slot}-${day.toISOString()}`"
+            class="timetable-cell"
+          >
+            <div
+              v-for="apt in getAppointmentsForCell(day, slot)"
+              :key="apt.id"
+              class="timetable-block"
+              :class="{ 'timetable-block-completed': apt.status === 'COMPLETED' }"
+              @click="handleTimetableBlockClick(apt)"
+            >
+              <span class="timetable-block-patient">{{ apt.clientName }}</span>
+              <span class="timetable-block-doctor">{{ apt.employeeName }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <Dialog
       v-model:visible="dialogVisible"
@@ -366,15 +627,20 @@ onMounted(() => {
           />
         </div>
         <div class="field">
-          <label for="dlg-end">End time *</label>
-          <DatePicker
-            id="dlg-end"
-            v-model="form.endTime"
-            show-time
-            hour-format="24"
+          <label for="dlg-duration">Duration</label>
+          <Select
+            id="dlg-duration"
+            v-model="form.durationMinutes"
+            :options="DURATION_OPTIONS"
+            optionLabel="label"
+            optionValue="value"
             :disabled="saving"
-            fluid
+            class="w-full"
           />
+        </div>
+        <div v-if="calculatedEndTime" class="field">
+          <label>End time</label>
+          <p class="calculated-end">{{ calculatedEndTime ? formatTime(calculatedEndTime.toISOString()) : '—' }}</p>
         </div>
         <div class="field">
           <label for="dlg-notes">Notes</label>
@@ -431,7 +697,11 @@ onMounted(() => {
   max-width: 300px;
 }
 
-.status-filter {
+.filter-select {
+  min-width: 140px;
+}
+
+.filter-date {
   min-width: 140px;
 }
 
@@ -470,6 +740,106 @@ onMounted(() => {
 .dialog-form .field :deep(.p-inputtext),
 .dialog-form .field :deep(.p-textarea) {
   width: 100%;
+}
+
+.view-toggle,
+.scope-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.timetable-view {
+  min-height: 400px;
+}
+
+.timetable-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--p-text-muted-color);
+}
+
+.timetable-grid {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--p-surface-border);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.timetable-header {
+  display: grid;
+  grid-template-columns: 80px repeat(var(--day-count, 8), minmax(120px, 1fr));
+  background: var(--p-surface-100);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.timetable-corner {
+  padding: 0.75rem 1rem;
+  border-right: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--p-surface-border);
+}
+
+.timetable-day-header {
+  padding: 0.75rem 1rem;
+  border-right: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--p-surface-border);
+  text-align: center;
+}
+
+.timetable-row {
+  display: grid;
+  grid-template-columns: 80px repeat(var(--day-count, 8), minmax(120px, 1fr));
+  min-height: 2.5rem;
+}
+
+.timetable-slot-label {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  border-right: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--p-surface-border);
+}
+
+.timetable-cell {
+  padding: 2px;
+  border-right: 1px solid var(--p-surface-border);
+  border-bottom: 1px solid var(--p-surface-border);
+  min-height: 2rem;
+}
+
+.timetable-block {
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 2px;
+  background: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timetable-block:hover {
+  opacity: 0.9;
+}
+
+.timetable-block-patient {
+  display: block;
+  font-weight: 500;
+}
+
+.timetable-block-doctor {
+  display: block;
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+
+.timetable-block-completed {
+  background: var(--p-surface-400);
+  cursor: default;
 }
 
 @media (max-width: 768px) {

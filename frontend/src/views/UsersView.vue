@@ -29,8 +29,10 @@ const confirm = useConfirm()
 const authStore = useAuthStore()
 
 const users = ref<User[]>([])
+const totalRecords = ref(0)
 const loading = ref(true)
 const search = ref('')
+const lazyParams = ref({ first: 0, rows: 10 })
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -77,7 +79,10 @@ function getErrorMessage(err: unknown, fallback: string): string {
 async function loadUsers() {
   loading.value = true
   try {
-    users.value = await getUsers()
+    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const res = await getUsers({ page, size: lazyParams.value.rows })
+    users.value = res.content
+    totalRecords.value = res.totalElements
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
@@ -87,6 +92,11 @@ async function loadUsers() {
   } finally {
     loading.value = false
   }
+}
+
+function onPage(event: { first: number; rows: number }) {
+  lazyParams.value = { first: event.first, rows: event.rows }
+  void loadUsers()
 }
 
 function openCreateDialog() {
@@ -161,7 +171,8 @@ async function saveUser() {
         phone: form.phone.trim() || undefined,
         role: form.role,
       })
-      users.value.push(created)
+      totalRecords.value += 1
+      users.value = [created, ...users.value].slice(0, lazyParams.value.rows)
       toast.add({
         severity: 'success',
         summary: 'User created',
@@ -259,12 +270,15 @@ onMounted(() => {
     <DataTable
       :value="filteredUsers"
       :loading="loading"
+      :lazy="true"
+      :totalRecords="totalRecords"
       dataKey="id"
       paginator
-      :rows="10"
+      :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
+      @page="onPage"
     >
       <template #empty>
         <div class="table-empty">No users found.</div>

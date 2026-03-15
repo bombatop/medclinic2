@@ -27,9 +27,11 @@ const toast = useToast()
 const confirm = useConfirm()
 
 const patients = ref<Patient[]>([])
+const totalRecords = ref(0)
 const loading = ref(true)
 const search = ref('')
 const expandedRows = ref<Patient[]>([])
+const lazyParams = ref({ first: 0, rows: 10 })
 const appointmentsCache = ref<Record<number, Appointment[]>>({})
 const loadingAppointments = ref<Record<number, boolean>>({})
 
@@ -63,7 +65,10 @@ function getErrorMessage(err: unknown, fallback: string): string {
 async function loadPatients() {
   loading.value = true
   try {
-    patients.value = await getPatients()
+    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const res = await getPatients({ page, size: lazyParams.value.rows })
+    patients.value = res.content
+    totalRecords.value = res.totalElements
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
@@ -73,6 +78,11 @@ async function loadPatients() {
   } finally {
     loading.value = false
   }
+}
+
+function onPage(event: { first: number; rows: number }) {
+  lazyParams.value = { first: event.first, rows: event.rows }
+  void loadPatients()
 }
 
 function openCreateDialog() {
@@ -128,7 +138,8 @@ async function savePatient() {
         notes: trimmed.notes || undefined,
       }
       const created = await createPatient(data)
-      patients.value.push(created)
+      totalRecords.value += 1
+      patients.value = [created, ...patients.value].slice(0, lazyParams.value.rows)
       toast.add({
         severity: 'success',
         summary: 'Patient created',
@@ -173,6 +184,7 @@ async function performDelete(patient: Patient) {
   try {
     await deletePatient(patient.id)
     patients.value = patients.value.filter((p) => p.id !== patient.id)
+    totalRecords.value = Math.max(0, totalRecords.value - 1)
     delete appointmentsCache.value[patient.id]
     toast.add({
       severity: 'success',
@@ -246,13 +258,16 @@ onMounted(() => {
       v-model:expandedRows="expandedRows"
       :value="filteredPatients"
       :loading="loading"
+      :lazy="true"
+      :totalRecords="totalRecords"
       dataKey="id"
       paginator
-      :rows="10"
+      :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
       @row-expand="onRowExpand"
+      @page="onPage"
     >
       <template #empty>
         <div class="table-empty">No patients found.</div>

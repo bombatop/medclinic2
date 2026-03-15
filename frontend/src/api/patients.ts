@@ -26,6 +26,19 @@ export interface UpdatePatientRequest {
   notes?: string
 }
 
+export interface PageResponse<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+export interface PageParams {
+  page?: number
+  size?: number
+}
+
 export interface Appointment {
   id: number
   employeeId: number
@@ -39,8 +52,10 @@ export interface Appointment {
   createdAt: string
 }
 
-export function getPatients(): Promise<Patient[]> {
-  return http.get<Patient[]>('/main/clients').then((res) => res.data)
+export function getPatients(params?: PageParams): Promise<PageResponse<Patient>> {
+  return http
+    .get<PageResponse<Patient>>('/main/clients', { params: { page: params?.page ?? 0, size: params?.size ?? 20 } })
+    .then((res) => res.data)
 }
 
 export function createPatient(data: CreatePatientRequest): Promise<Patient> {
