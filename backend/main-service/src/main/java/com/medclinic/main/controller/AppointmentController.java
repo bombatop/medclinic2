@@ -2,6 +2,7 @@ package com.medclinic.main.controller;
 
 import com.medclinic.main.dto.AppointmentResponse;
 import com.medclinic.main.dto.CreateAppointmentRequest;
+import com.medclinic.main.dto.UpdateAppointmentRequest;
 import com.medclinic.main.dto.PageResponse;
 import com.medclinic.main.model.AppointmentStatus;
 import com.medclinic.main.service.AppointmentService;
@@ -28,6 +29,12 @@ public class AppointmentController {
     public ResponseEntity<AppointmentResponse> createAppointment(
             @Valid @RequestBody CreateAppointmentRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(appointmentService.createAppointment(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<AppointmentResponse> updateAppointment(@PathVariable Long id,
+                                                                 @Valid @RequestBody UpdateAppointmentRequest request) {
+        return ResponseEntity.ok(appointmentService.updateAppointment(id, request));
     }
 
     @GetMapping

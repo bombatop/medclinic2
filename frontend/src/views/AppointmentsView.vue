@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   createAppointment,
   getAppointments,
+  updateAppointment,
   updateAppointmentStatus,
   type Appointment,
 } from '@/api/appointments'
@@ -28,7 +29,12 @@ const totalRecords = ref(0)
 const doctors = ref<Doctor[]>([])
 const patients = ref<Patient[]>([])
 const loading = ref(true)
-const lazyParams = ref({ first: 0, rows: 10 })
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'startTime' as string | null,
+  sortOrder: 1 as number,
+})
 const search = ref('')
 const filterDoctor = ref<number | null>(null)
 const filterPatient = ref<number | null>(null)
@@ -43,6 +49,15 @@ const timetableLoading = ref(false)
 
 const dialogVisible = ref(false)
 const saving = ref(false)
+const viewingAppointment = ref<Appointment | null>(null)
+const editingAppointmentId = ref<number | null>(null)
+const editForm = reactive({
+  employeeId: null as number | null,
+  clientId: null as number | null,
+  startTime: null as Date | null,
+  durationMinutes: 30,
+  notes: '',
+})
 
 const DURATION_OPTIONS = [
   { label: '15 min', value: 15 },
@@ -65,6 +80,13 @@ const calculatedEndTime = computed(() => {
   if (!form.startTime) return null
   const end = new Date(form.startTime)
   end.setMinutes(end.getMinutes() + form.durationMinutes)
+  return end
+})
+
+const editFormEndTime = computed(() => {
+  if (!editForm.startTime) return null
+  const end = new Date(editForm.startTime)
+  end.setMinutes(end.getMinutes() + editForm.durationMinutes)
   return end
 })
 
@@ -140,8 +162,12 @@ async function loadAppointments() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const sort =
+      lazyParams.value.sortField != null
+        ? `${lazyParams.value.sortField},${lazyParams.value.sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
     const res = await getAppointments(
-      { page, size: lazyParams.value.rows },
+      { page, size: lazyParams.value.rows, sort },
       activeFilters.value,
     )
     appointments.value = res.content
@@ -157,17 +183,30 @@ async function loadAppointments() {
   }
 }
 
-function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+function onPage(event: { first: number; rows: number; sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: event.first,
+    rows: event.rows,
+    sortField: event.sortField ?? lazyParams.value.sortField,
+    sortOrder: event.sortOrder ?? lazyParams.value.sortOrder,
+  }
   void loadAppointments()
 }
 
-function onFiltersChange() {
-  lazyParams.value = { first: 0, rows: lazyParams.value.rows }
-  void loadAppointments()
+function reloadCurrentView() {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: lazyParams.value.sortField,
+    sortOrder: lazyParams.value.sortOrder,
+  }
+  void loadForCurrentView()
 }
 
-watch([filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo], onFiltersChange)
+watch(
+  [viewMode, timetableScope, filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo],
+  reloadCurrentView,
+)
 
 const timetableFrom = computed(() => {
   const d = new Date()
@@ -201,9 +240,38 @@ const TIME_SLOTS = (() => {
   return slots
 })()
 
+const detailsModalOpen = computed({
+  get: () => viewingAppointment.value != null,
+  set: (v) => {
+    if (!v) viewingAppointment.value = null
+  },
+})
+
+function openDetailsModal(apt: Appointment) {
+  viewingAppointment.value = apt
+  editingAppointmentId.value = apt.id
+  editForm.employeeId = apt.employeeId
+  editForm.clientId = apt.clientId
+  editForm.startTime = new Date(apt.startTime)
+  const start = new Date(apt.startTime)
+  const end = new Date(apt.endTime)
+  const durationMin = Math.round((end.getTime() - start.getTime()) / 60000)
+  const validDurations = DURATION_OPTIONS.map((d) => d.value)
+  editForm.durationMinutes = validDurations.includes(durationMin)
+    ? durationMin
+    : validDurations.reduce((a, b) =>
+        Math.abs(a - durationMin) < Math.abs(b - durationMin) ? a : b,
+      )
+  editForm.notes = apt.notes ?? ''
+}
+
+function closeDetailsModal() {
+  viewingAppointment.value = null
+  editingAppointmentId.value = null
+}
+
 function handleTimetableBlockClick(apt: Appointment) {
-  if (apt.status === 'SCHEDULED') void changeStatus(apt, 'IN_PROGRESS')
-  else if (apt.status === 'IN_PROGRESS') void changeStatus(apt, 'COMPLETED')
+  openDetailsModal(apt)
 }
 
 function getAppointmentsForCell(day: Date, slotStart: string): Appointment[] {
@@ -220,6 +288,7 @@ function getAppointmentsForCell(day: Date, slotStart: string): Appointment[] {
 
 async function loadTimetableAppointments() {
   if (viewMode.value !== 'timetable') return
+  if (timetableLoading.value) return
   timetableLoading.value = true
   try {
     const from = new Date(timetableFrom.value)
@@ -242,10 +311,10 @@ async function loadTimetableAppointments() {
   }
 }
 
-watch([viewMode, timetableScope], () => {
+function loadForCurrentView() {
   if (viewMode.value === 'timetable') void loadTimetableAppointments()
   else void loadAppointments()
-})
+}
 
 async function loadDoctorsAndPatients() {
   try {
@@ -325,6 +394,57 @@ async function saveAppointment() {
   }
 }
 
+async function saveEditAppointment() {
+  if (editingAppointmentId.value == null) return
+  if (editForm.employeeId == null) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
+    return
+  }
+  if (editForm.clientId == null) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Patient is required.' })
+    return
+  }
+  if (!editForm.startTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
+    return
+  }
+  const endTime = editFormEndTime.value
+  if (!endTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Invalid duration.' })
+    return
+  }
+
+  saving.value = true
+  try {
+    const updated = await updateAppointment(editingAppointmentId.value, {
+      employeeId: editForm.employeeId,
+      clientId: editForm.clientId,
+      startTime: toLocalISOString(editForm.startTime),
+      endTime: toLocalISOString(endTime),
+      notes: editForm.notes.trim() || undefined,
+    })
+    const idx = appointments.value.findIndex((a) => a.id === updated.id)
+    if (idx >= 0) appointments.value[idx] = updated
+    const tidx = timetableAppointments.value.findIndex((a) => a.id === updated.id)
+    if (tidx >= 0) timetableAppointments.value[tidx] = updated
+    viewingAppointment.value = updated
+    toast.add({
+      severity: 'success',
+      summary: 'Appointment updated',
+      detail: `${updated.clientName} with ${updated.employeeName} rescheduled.`,
+    })
+    viewingAppointment.value = null
+  } catch (err: unknown) {
+    toast.add({
+      severity: 'error',
+      summary: 'Update failed',
+      detail: getErrorMessage(err, 'Unable to update appointment.'),
+    })
+  } finally {
+    saving.value = false
+  }
+}
+
 async function changeStatus(apt: Appointment, status: Appointment['status']) {
   try {
     const updated = await updateAppointmentStatus(apt.id, status)
@@ -332,6 +452,7 @@ async function changeStatus(apt: Appointment, status: Appointment['status']) {
     if (idx >= 0) appointments.value[idx] = updated
     const tidx = timetableAppointments.value.findIndex((a) => a.id === updated.id)
     if (tidx >= 0) timetableAppointments.value[tidx] = updated
+    if (viewingAppointment.value?.id === updated.id) viewingAppointment.value = updated
     toast.add({
       severity: 'success',
       summary: 'Status updated',
@@ -366,11 +487,7 @@ function statusSeverity(status: string) {
 
 onMounted(() => {
   void loadDoctorsAndPatients()
-  if (viewMode.value === 'timetable') {
-    void loadTimetableAppointments()
-  } else {
-    void loadAppointments()
-  }
+  reloadCurrentView()
 })
 </script>
 
@@ -465,6 +582,8 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
       removableSort
       @page="onPage"
@@ -498,6 +617,19 @@ onMounted(() => {
       <Column header="Notes">
         <template #body="{ data }">
           {{ data.notes || '—' }}
+        </template>
+      </Column>
+
+      <Column header="" style="width: 4rem">
+        <template #body="{ data }">
+          <Button
+            icon="pi pi-pencil"
+            severity="secondary"
+            text
+            size="small"
+            aria-label="Edit"
+            @click="openDetailsModal(data)"
+          />
         </template>
       </Column>
 
@@ -664,6 +796,126 @@ onMounted(() => {
         />
       </template>
     </Dialog>
+
+    <Dialog
+      v-model:visible="detailsModalOpen"
+      header="Edit Appointment"
+      modal
+      :style="{ width: '480px' }"
+    >
+      <div v-if="viewingAppointment" class="dialog-form">
+        <div class="field">
+          <label>Status</label>
+          <Tag :value="viewingAppointment.status" :severity="statusSeverity(viewingAppointment.status)" />
+        </div>
+        <div class="field">
+          <label for="edit-doctor">Doctor *</label>
+          <Select
+            id="edit-doctor"
+            v-model="editForm.employeeId"
+            :options="doctorOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select doctor"
+            :disabled="saving"
+            class="w-full"
+          />
+        </div>
+        <div class="field">
+          <label for="edit-patient">Patient *</label>
+          <Select
+            id="edit-patient"
+            v-model="editForm.clientId"
+            :options="patientOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select patient"
+            :disabled="saving"
+            class="w-full"
+          />
+        </div>
+        <div class="field">
+          <label for="edit-start">Start time *</label>
+          <DatePicker
+            id="edit-start"
+            v-model="editForm.startTime"
+            show-time
+            hour-format="24"
+            :disabled="saving"
+            fluid
+          />
+        </div>
+        <div class="field">
+          <label for="edit-duration">Duration</label>
+          <Select
+            id="edit-duration"
+            v-model="editForm.durationMinutes"
+            :options="DURATION_OPTIONS"
+            optionLabel="label"
+            optionValue="value"
+            :disabled="saving"
+            class="w-full"
+          />
+        </div>
+        <div v-if="editFormEndTime" class="field">
+          <label>End time</label>
+          <p class="calculated-end">{{ formatTime(editFormEndTime.toISOString()) }}</p>
+        </div>
+        <div class="field">
+          <label for="edit-notes">Notes</label>
+          <Textarea id="edit-notes" v-model="editForm.notes" :disabled="saving" rows="3" autoResize />
+        </div>
+        <div v-if="viewingAppointment.status !== 'CANCELLED' && viewingAppointment.status !== 'COMPLETED'" class="field detail-actions">
+          <div class="row-actions">
+            <Button
+              v-if="viewingAppointment.status === 'SCHEDULED'"
+              label="Start"
+              size="small"
+              severity="success"
+              @click="changeStatus(viewingAppointment, 'IN_PROGRESS')"
+            />
+            <Button
+              v-if="viewingAppointment.status === 'SCHEDULED'"
+              label="Cancel"
+              size="small"
+              severity="danger"
+              text
+              @click="changeStatus(viewingAppointment, 'CANCELLED')"
+            />
+            <Button
+              v-if="viewingAppointment.status === 'IN_PROGRESS'"
+              label="Complete"
+              size="small"
+              severity="success"
+              @click="changeStatus(viewingAppointment, 'COMPLETED')"
+            />
+            <Button
+              v-if="viewingAppointment.status === 'IN_PROGRESS'"
+              label="Cancel"
+              size="small"
+              severity="danger"
+              text
+              @click="changeStatus(viewingAppointment, 'CANCELLED')"
+            />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <Button
+          label="Close"
+          severity="secondary"
+          text
+          :disabled="saving"
+          @click="closeDetailsModal"
+        />
+        <Button
+          label="Update"
+          icon="pi pi-check"
+          :loading="saving"
+          @click="saveEditAppointment"
+        />
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -740,6 +992,10 @@ onMounted(() => {
 .dialog-form .field :deep(.p-inputtext),
 .dialog-form .field :deep(.p-textarea) {
   width: 100%;
+}
+
+.detail-actions {
+  margin-top: 0.5rem;
 }
 
 .view-toggle,
@@ -839,7 +1095,6 @@ onMounted(() => {
 
 .timetable-block-completed {
   background: var(--p-surface-400);
-  cursor: default;
 }
 
 @media (max-width: 768px) {

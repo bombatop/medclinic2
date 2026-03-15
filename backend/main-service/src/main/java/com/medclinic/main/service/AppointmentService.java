@@ -2,6 +2,7 @@ package com.medclinic.main.service;
 
 import com.medclinic.main.dto.AppointmentResponse;
 import com.medclinic.main.dto.CreateAppointmentRequest;
+import com.medclinic.main.dto.UpdateAppointmentRequest;
 import com.medclinic.main.event.AppointmentEventPublisher;
 import com.medclinic.main.exception.ConflictException;
 import com.medclinic.main.exception.ResourceNotFoundException;
@@ -10,6 +11,7 @@ import com.medclinic.main.model.AppointmentStatus;
 import com.medclinic.main.model.Client;
 import com.medclinic.main.model.Employee;
 import com.medclinic.main.repository.AppointmentRepository;
+import com.medclinic.main.repository.AppointmentSpecification;
 import com.medclinic.main.repository.ClientRepository;
 import com.medclinic.main.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
@@ -86,9 +88,8 @@ public class AppointmentService {
             LocalDateTime fromDate,
             LocalDateTime toDate,
             Pageable pageable) {
-        return appointmentRepository.findAllFiltered(
-                employeeId, clientId, status, fromDate, toDate, pageable)
-                .map(AppointmentResponse::from);
+        var spec = AppointmentSpecification.withFilters(employeeId, clientId, status, fromDate, toDate);
+        return appointmentRepository.findAll(spec, pageable).map(AppointmentResponse::from);
     }
 
     @Transactional(readOnly = true)
@@ -120,6 +121,44 @@ public class AppointmentService {
         appointment.setStatus(status);
         Appointment saved = appointmentRepository.save(appointment);
         eventPublisher.publish(saved, "STATUS_" + status.name());
+        return AppointmentResponse.from(saved);
+    }
+
+    @Transactional
+    public AppointmentResponse updateAppointment(Long id, UpdateAppointmentRequest request) {
+        if (!request.endTime().isAfter(request.startTime())) {
+            throw new IllegalArgumentException("End time must be after start time");
+        }
+
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+
+        Employee employee = employeeRepository.findById(request.employeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
+
+        if (!employee.isActive()) {
+            throw new ConflictException("Employee is not active");
+        }
+
+        Client client = clientRepository.findById(request.clientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
+
+        List<Appointment> overlapping = appointmentRepository.findOverlapping(
+                employee.getId(), request.startTime(), request.endTime());
+        overlapping.removeIf(a -> a.getId().equals(id));
+
+        if (!overlapping.isEmpty()) {
+            throw new ConflictException("Employee already has an appointment in this time slot");
+        }
+
+        appointment.setEmployee(employee);
+        appointment.setClient(client);
+        appointment.setStartTime(request.startTime());
+        appointment.setEndTime(request.endTime());
+        appointment.setNotes(request.notes());
+
+        Appointment saved = appointmentRepository.save(appointment);
+        eventPublisher.publish(saved, "UPDATED");
         return AppointmentResponse.from(saved);
     }
 }
