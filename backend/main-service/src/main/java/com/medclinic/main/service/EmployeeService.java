@@ -68,7 +68,7 @@ public class EmployeeService {
             employee.setLastName(request.lastName());
         }
         if (request.specialization() != null) {
-            employee.setSpecialization(request.specialization());
+            employee.setSpecialization(request.specialization().isBlank() ? null : request.specialization());
         }
 
         return EmployeeResponse.from(employeeRepository.save(employee));
