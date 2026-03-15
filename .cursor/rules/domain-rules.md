@@ -39,6 +39,24 @@
   - Self-service via `/auth/me/password`.
   - Requires correct current password; otherwise rejected.
 
+#### Default admin (seeded)
+
+- **AdminSeeder** (`backend/auth-service/.../config/AdminSeeder.java`) runs on auth-service startup.
+- If no user with role `ADMIN` exists, it creates one:
+  - **Username**: `admin`
+  - **Password**: `admin`
+  - **Email**: `admin@medclinic.local`
+- Change this password after first login (e.g. via `/auth/me/password`).
+
+**Reset admin password to default (`admin` / `admin`):**
+
+1. Delete the seeded admin user from the auth DB, then restart auth-service so the seeder recreates it:
+   ```bash
+   docker exec medclinic-postgres-auth psql -U auth_user -d auth_service_db -c "DELETE FROM users WHERE username = 'admin';"
+   docker restart medclinic-auth-service
+   ```
+2. Wait for auth-service to be healthy; the default admin account will exist again with password `admin`.
+
 #### Auth flows
 
 - **Login** (`/auth/login`):
