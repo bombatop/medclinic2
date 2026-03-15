@@ -7,6 +7,8 @@ import com.medclinic.main.exception.ResourceNotFoundException;
 import com.medclinic.main.model.Client;
 import com.medclinic.main.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +38,11 @@ public class ClientService {
         return clientRepository.findAll().stream()
                 .map(ClientResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ClientResponse> getAllClients(Pageable pageable) {
+        return clientRepository.findAll(pageable).map(ClientResponse::from);
     }
 
     @Transactional(readOnly = true)

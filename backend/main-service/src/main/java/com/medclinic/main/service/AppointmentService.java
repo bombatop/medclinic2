@@ -13,9 +13,12 @@ import com.medclinic.main.repository.AppointmentRepository;
 import com.medclinic.main.repository.ClientRepository;
 import com.medclinic.main.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -68,6 +71,24 @@ public class AppointmentService {
         return appointmentRepository.findAll().stream()
                 .map(AppointmentResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AppointmentResponse> getAllAppointments(Pageable pageable) {
+        return appointmentRepository.findAll(pageable).map(AppointmentResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AppointmentResponse> getAllAppointmentsFiltered(
+            Long employeeId,
+            Long clientId,
+            AppointmentStatus status,
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
+            Pageable pageable) {
+        return appointmentRepository.findAllFiltered(
+                employeeId, clientId, status, fromDate, toDate, pageable)
+                .map(AppointmentResponse::from);
     }
 
     @Transactional(readOnly = true)

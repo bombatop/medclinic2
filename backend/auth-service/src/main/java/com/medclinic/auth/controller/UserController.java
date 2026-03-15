@@ -1,11 +1,14 @@
 package com.medclinic.auth.controller;
 
 import com.medclinic.auth.dto.CreateUserRequest;
+import com.medclinic.auth.dto.PageResponse;
 import com.medclinic.auth.dto.UpdateUserRequest;
 import com.medclinic.auth.dto.UserResponse;
 import com.medclinic.auth.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,8 +30,9 @@ public class UserController {
     }
 
     @GetMapping
-    public ResponseEntity<List<UserResponse>> getAllUsers() {
-        return ResponseEntity.ok(userService.getAllUsers());
+    public ResponseEntity<PageResponse<UserResponse>> getAllUsers(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(PageResponse.from(userService.getAllUsers(pageable)));
     }
 
     @GetMapping("/{id}")
