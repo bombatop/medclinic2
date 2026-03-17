@@ -4,9 +4,14 @@ import com.medclinic.auth.dto.ChangePasswordRequest;
 import com.medclinic.auth.dto.CreateUserRequest;
 import com.medclinic.auth.dto.UpdateUserRequest;
 import com.medclinic.auth.dto.UserResponse;
+import com.medclinic.auth.dto.UserRolesResponse;
+import com.medclinic.auth.dto.UpdateUserRolesRequest;
 import com.medclinic.auth.exception.ConflictException;
 import com.medclinic.auth.exception.ResourceNotFoundException;
+import com.medclinic.auth.model.Role;
+import com.medclinic.auth.model.RoleAssignmentAudit;
 import com.medclinic.auth.model.User;
+import com.medclinic.auth.repository.RoleAssignmentAuditRepository;
 import com.medclinic.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,13 +21,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RoleAssignmentAuditRepository roleAssignmentAuditRepository;
+    private final RbacService rbacService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -34,6 +43,7 @@ public class UserService {
             throw new ConflictException("Email already taken");
         }
 
+        Set<Role> roles = resolveRequestedRoles(request);
         User user = User.builder()
                 .username(request.username())
                 .password(passwordEncoder.encode(request.password()))
@@ -41,7 +51,7 @@ public class UserService {
                 .lastName(request.lastName())
                 .email(request.email())
                 .phone(request.phone())
-                .role(request.role())
+                .roles(new LinkedHashSet<>(roles))
                 .build();
 
         return UserResponse.from(userRepository.save(user));
@@ -133,5 +143,52 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserRolesResponse getUserRoles(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Set<Role> roles = rbacService.resolveRoles(user);
+        return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(roles));
+    }
+
+    @Transactional
+    public UserRolesResponse updateUserRoles(Long userId,
+                                             UpdateUserRolesRequest request,
+                                             String actorUsername,
+                                             Long actorUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Set<Role> beforeRoles = rbacService.resolveRoles(user);
+        Set<Role> afterRoles = rbacService.normalizeRoles(request.roles());
+
+        user.setRoles(new LinkedHashSet<>(afterRoles));
+        userRepository.save(user);
+
+        RoleAssignmentAudit audit = RoleAssignmentAudit.builder()
+                .actorUserId(resolveActorUserId(actorUsername, actorUserId))
+                .actorUsername(actorUsername)
+                .targetUserId(user.getId())
+                .rolesBefore(rbacService.joinRoles(beforeRoles))
+                .rolesAfter(rbacService.joinRoles(afterRoles))
+                .build();
+        roleAssignmentAuditRepository.save(audit);
+
+        return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(afterRoles));
+    }
+
+    private Set<Role> resolveRequestedRoles(CreateUserRequest request) {
+        return rbacService.normalizeRoles(request.roles());
+    }
+
+    private Long resolveActorUserId(String actorUsername, Long actorUserId) {
+        if (actorUserId != null) {
+            return actorUserId;
+        }
+        return userRepository.findByUsername(actorUsername)
+                .map(User::getId)
+                .orElse(0L);
     }
 }
