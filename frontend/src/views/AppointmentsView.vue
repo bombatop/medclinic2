@@ -107,24 +107,31 @@ const patientOptions = computed(() =>
 )
 
 const statusOptions = [
-  { label: 'All', value: null },
   { label: 'Scheduled', value: 'SCHEDULED' },
   { label: 'In progress', value: 'IN_PROGRESS' },
   { label: 'Completed', value: 'COMPLETED' },
   { label: 'Cancelled', value: 'CANCELLED' },
 ]
 
-const filteredAppointments = computed(() => {
-  let list = appointments.value
-  const q = search.value.toLowerCase().trim()
-  if (q) {
-    list = list.filter((a) => {
-      const haystack = `${a.employeeName} ${a.clientName}`.toLowerCase()
-      return haystack.includes(q)
-    })
-  }
-  return list
-})
+function filterBySearch<T extends { employeeName: string; clientName: string }>(
+  list: T[],
+  q: string,
+): T[] {
+  if (!q) return list
+  const lower = q.toLowerCase()
+  return list.filter((a) => {
+    const haystack = `${a.employeeName} ${a.clientName}`.toLowerCase()
+    return haystack.includes(lower)
+  })
+}
+
+const filteredAppointments = computed(() =>
+  filterBySearch(appointments.value, search.value.trim()),
+)
+
+const filteredTimetableAppointments = computed(() =>
+  filterBySearch(timetableAppointments.value, search.value.trim()),
+)
 
 function toLocalISO(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -379,7 +386,7 @@ function openCreateDialog() {
   form.employeeId = null
   form.clientId = null
   form.startTime = null
-  form.durationMinutes = 30
+  form.endTime = null
   form.notes = ''
   dialogVisible.value = true
 }
