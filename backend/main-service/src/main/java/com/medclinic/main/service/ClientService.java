@@ -7,6 +7,8 @@ import com.medclinic.main.exception.ResourceNotFoundException;
 import com.medclinic.main.model.Client;
 import com.medclinic.main.repository.ClientRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,11 @@ public class ClientService {
     }
 
     @Transactional(readOnly = true)
+    public Page<ClientResponse> getAllClients(Pageable pageable) {
+        return clientRepository.findAll(pageable).map(ClientResponse::from);
+    }
+
+    @Transactional(readOnly = true)
     public ClientResponse getClientById(Long id) {
         return clientRepository.findById(id)
                 .map(ClientResponse::from)
@@ -60,12 +67,19 @@ public class ClientService {
             client.setPhone(request.phone());
         }
         if (request.email() != null) {
-            client.setEmail(request.email());
+            client.setEmail(request.email().isBlank() ? null : request.email());
         }
         if (request.notes() != null) {
-            client.setNotes(request.notes());
+            client.setNotes(request.notes().isBlank() ? null : request.notes());
         }
 
         return ClientResponse.from(clientRepository.save(client));
+    }
+
+    @Transactional
+    public void deleteClient(Long id) {
+        Client client = clientRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
+        clientRepository.delete(client);
     }
 }

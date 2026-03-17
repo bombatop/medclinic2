@@ -17,6 +17,10 @@ docker compose version
 
 ```
 medclinic2/
+├── frontend/
+│   ├── Dockerfile              # Multi-stage build (Node + Nginx)
+│   ├── nginx.conf              # SPA routing + API proxy
+│   └── src/                    # Vue 3 + PrimeVue
 ├── backend/
 │   ├── Dockerfile              # Multi-stage build (Gradle + JRE)
 │   ├── build.gradle.kts, settings.gradle.kts
@@ -29,7 +33,7 @@ medclinic2/
 │   └── shared-lib/             # Common DTOs, utils
 ├── infrastructure/
 │   └── docker-compose.yml      # DB + RabbitMQ only (for local dev)
-├── docker-compose.yml          # Full stack (infrastructure + all services)
+├── docker-compose.yml          # Full stack
 └── README.md
 ```
 
@@ -40,12 +44,13 @@ git clone https://github.com/bombatop/medclinic2.git && cd medclinic2
 docker compose up -d --build
 ```
 
-That's it. Docker builds the JDK, compiles the code, and runs everything.
+That's it. Open http://localhost:3000 in your browser.
 
 ### Services
 
 | Service              | Port  | URL                          |
 |----------------------|-------|------------------------------|
+| Frontend             | 3000  | http://localhost:3000         |
 | API Gateway          | 8080  | http://localhost:8080         |
 | Eureka Dashboard     | 8761  | http://localhost:8761         |
 | Main Service         | 8081  | http://localhost:8081         |
@@ -75,3 +80,24 @@ docker compose up -d --build main-service
 # Start only infrastructure (databases + RabbitMQ)
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
+
+### Default credentials
+
+For development, the auth-service seeds an admin user:
+
+- **Username:** `admin`
+- **Password:** `admin`
+
+Change the password after first login.
+
+### Frontend tech stack
+
+| Layer            | Choice            |
+|------------------|-------------------|
+| Framework        | Vue 3             |
+| Language         | TypeScript        |
+| Build tool       | Vite              |
+| Routing          | Vue Router        |
+| State management | Pinia             |
+| HTTP client      | Axios             |
+| UI components    | PrimeVue (Aura)   |

@@ -8,6 +8,8 @@ import com.medclinic.main.exception.ResourceNotFoundException;
 import com.medclinic.main.model.Employee;
 import com.medclinic.main.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +45,11 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
+    public Page<EmployeeResponse> getAllEmployees(Pageable pageable) {
+        return employeeRepository.findAll(pageable).map(EmployeeResponse::from);
+    }
+
+    @Transactional(readOnly = true)
     public EmployeeResponse getEmployeeById(Long id) {
         return employeeRepository.findById(id)
                 .map(EmployeeResponse::from)
@@ -68,7 +75,7 @@ public class EmployeeService {
             employee.setLastName(request.lastName());
         }
         if (request.specialization() != null) {
-            employee.setSpecialization(request.specialization());
+            employee.setSpecialization(request.specialization().isBlank() ? null : request.specialization());
         }
 
         return EmployeeResponse.from(employeeRepository.save(employee));

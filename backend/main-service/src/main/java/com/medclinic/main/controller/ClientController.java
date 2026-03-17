@@ -2,10 +2,13 @@ package com.medclinic.main.controller;
 
 import com.medclinic.main.dto.ClientResponse;
 import com.medclinic.main.dto.CreateClientRequest;
+import com.medclinic.main.dto.PageResponse;
 import com.medclinic.main.dto.UpdateClientRequest;
 import com.medclinic.main.service.ClientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,8 +28,9 @@ public class ClientController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ClientResponse>> getAllClients() {
-        return ResponseEntity.ok(clientService.getAllClients());
+    public ResponseEntity<PageResponse<ClientResponse>> getAllClients(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(PageResponse.from(clientService.getAllClients(pageable)));
     }
 
     @GetMapping("/{id}")
@@ -38,5 +42,11 @@ public class ClientController {
     public ResponseEntity<ClientResponse> updateClient(@PathVariable Long id,
                                                        @Valid @RequestBody UpdateClientRequest request) {
         return ResponseEntity.ok(clientService.updateClient(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteClient(@PathVariable Long id) {
+        clientService.deleteClient(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -11,6 +11,8 @@ import com.medclinic.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +55,11 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public Page<UserResponse> getAllUsers(Pageable pageable) {
+        return userRepository.findAll(pageable).map(UserResponse::from);
+    }
+
+    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
         return userRepository.findById(id)
                 .map(UserResponse::from)
@@ -63,24 +70,7 @@ public class UserService {
     public UserResponse updateUser(Long id, UpdateUserRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        if (request.firstName() != null) {
-            user.setFirstName(request.firstName());
-        }
-        if (request.lastName() != null) {
-            user.setLastName(request.lastName());
-        }
-        if (request.email() != null) {
-            if (!request.email().equals(user.getEmail()) && userRepository.existsByEmail(request.email())) {
-                throw new ConflictException("Email already taken");
-            }
-            user.setEmail(request.email());
-        }
-        if (request.phone() != null) {
-            user.setPhone(request.phone());
-        }
-
-        return UserResponse.from(userRepository.save(user));
+        return UserResponse.from(userRepository.save(applyProfileUpdate(user, request)));
     }
 
     @Transactional
@@ -104,6 +94,32 @@ public class UserService {
         return userRepository.findByUsername(username)
                 .map(UserResponse::from)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    @Transactional
+    public UserResponse updateUserByUsername(String username, UpdateUserRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        return UserResponse.from(userRepository.save(applyProfileUpdate(user, request)));
+    }
+
+    private User applyProfileUpdate(User user, UpdateUserRequest request) {
+        if (request.firstName() != null) {
+            user.setFirstName(request.firstName());
+        }
+        if (request.lastName() != null) {
+            user.setLastName(request.lastName());
+        }
+        if (request.email() != null) {
+            if (!request.email().equals(user.getEmail()) && userRepository.existsByEmail(request.email())) {
+                throw new ConflictException("Email already taken");
+            }
+            user.setEmail(request.email());
+        }
+        if (request.phone() != null) {
+            user.setPhone(request.phone());
+        }
+        return user;
     }
 
     @Transactional
