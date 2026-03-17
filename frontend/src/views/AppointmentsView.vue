@@ -55,11 +55,11 @@ const editForm = reactive({
   employeeId: null as number | null,
   clientId: null as number | null,
   startTime: null as Date | null,
-  durationMinutes: 30,
+  endTime: null as Date | null,
   notes: '',
 })
 
-const DURATION_OPTIONS = [
+const DURATION_PRESETS = [
   { label: '15 min', value: 15 },
   { label: '30 min', value: 30 },
   { label: '45 min', value: 45 },
@@ -72,23 +72,71 @@ const form = reactive({
   employeeId: null as number | null,
   clientId: null as number | null,
   startTime: null as Date | null,
-  durationMinutes: 30,
+  endTime: null as Date | null,
   notes: '',
 })
 
-const calculatedEndTime = computed(() => {
-  if (!form.startTime) return null
-  const end = new Date(form.startTime)
-  end.setMinutes(end.getMinutes() + form.durationMinutes)
-  return end
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m === 0 ? `${h} h` : `${h} h ${m} min`
+}
+
+const formDurationMinutes = computed(() => {
+  if (!form.startTime || !form.endTime) return null
+  return Math.round((form.endTime.getTime() - form.startTime.getTime()) / 60000)
 })
 
-const editFormEndTime = computed(() => {
-  if (!editForm.startTime) return null
-  const end = new Date(editForm.startTime)
-  end.setMinutes(end.getMinutes() + editForm.durationMinutes)
-  return end
+const editFormDurationMinutes = computed(() => {
+  if (!editForm.startTime || !editForm.endTime) return null
+  return Math.round((editForm.endTime.getTime() - editForm.startTime.getTime()) / 60000)
 })
+
+const formEndTimeModel = computed({
+  get: () => form.endTime,
+  set: (v: Date | null) => {
+    if (!v) {
+      form.endTime = null
+      return
+    }
+    if (!form.startTime) {
+      form.endTime = v
+      return
+    }
+    const end = new Date(form.startTime)
+    end.setHours(v.getHours(), v.getMinutes(), 0, 0)
+    form.endTime = end
+  },
+})
+
+const editFormEndTimeModel = computed({
+  get: () => editForm.endTime,
+  set: (v: Date | null) => {
+    if (!v) {
+      editForm.endTime = null
+      return
+    }
+    if (!editForm.startTime) {
+      editForm.endTime = v
+      return
+    }
+    const end = new Date(editForm.startTime)
+    end.setHours(v.getHours(), v.getMinutes(), 0, 0)
+    editForm.endTime = end
+  },
+})
+
+function applyDurationPreset(
+  startTime: Date | null,
+  setEndTime: (d: Date | null) => void,
+  minutes: number,
+) {
+  if (!startTime) return
+  const end = new Date(startTime)
+  end.setMinutes(end.getMinutes() + minutes)
+  setEndTime(end)
+}
 
 const doctorOptions = computed(() =>
   doctors.value
@@ -257,6 +305,44 @@ watch(
   reloadCurrentView,
 )
 
+watch(
+  () => form.startTime,
+  (start, prevStart) => {
+    if (!start) return
+    if (!form.endTime) {
+      const end = new Date(start)
+      end.setMinutes(end.getMinutes() + 30)
+      form.endTime = end
+      return
+    }
+    if (prevStart && form.endTime.getTime() <= start.getTime()) {
+      const durationMin = Math.round((form.endTime.getTime() - prevStart.getTime()) / 60000)
+      const end = new Date(start)
+      end.setMinutes(end.getMinutes() + Math.max(5, durationMin))
+      form.endTime = end
+    }
+  },
+)
+
+watch(
+  () => editForm.startTime,
+  (start, prevStart) => {
+    if (!start) return
+    if (!editForm.endTime) {
+      const end = new Date(start)
+      end.setMinutes(end.getMinutes() + 30)
+      editForm.endTime = end
+      return
+    }
+    if (prevStart && editForm.endTime.getTime() <= start.getTime()) {
+      const durationMin = Math.max(5, Math.round((editForm.endTime.getTime() - prevStart.getTime()) / 60000))
+      const end = new Date(start)
+      end.setMinutes(end.getMinutes() + durationMin)
+      editForm.endTime = end
+    }
+  },
+)
+
 const timetableFrom = computed(() => {
   if (filterDateFrom.value) {
     const d = new Date(filterDateFrom.value)
@@ -313,15 +399,7 @@ function openDetailsModal(apt: Appointment) {
   editForm.employeeId = apt.employeeId
   editForm.clientId = apt.clientId
   editForm.startTime = new Date(apt.startTime)
-  const start = new Date(apt.startTime)
-  const end = new Date(apt.endTime)
-  const durationMin = Math.round((end.getTime() - start.getTime()) / 60000)
-  const validDurations = DURATION_OPTIONS.map((d) => d.value)
-  editForm.durationMinutes = validDurations.includes(durationMin)
-    ? durationMin
-    : validDurations.reduce((a, b) =>
-        Math.abs(a - durationMin) < Math.abs(b - durationMin) ? a : b,
-      )
+  editForm.endTime = new Date(apt.endTime)
   editForm.notes = apt.notes ?? ''
 }
 
@@ -340,7 +418,7 @@ function getAppointmentsForCell(day: Date, slotStart: string): Appointment[] {
   cellStart.setHours(h, m, 0, 0)
   const cellEnd = new Date(cellStart)
   cellEnd.setMinutes(cellEnd.getMinutes() + 30)
-  return timetableAppointments.value.filter((a) => {
+  return filteredTimetableAppointments.value.filter((a) => {
     const start = new Date(a.startTime)
     return start >= cellStart && start < cellEnd
   })
@@ -409,9 +487,12 @@ async function saveAppointment() {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
     return
   }
-  const endTime = calculatedEndTime.value
-  if (!endTime) {
-    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Invalid duration.' })
+  if (!form.endTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
+    return
+  }
+  if (form.endTime.getTime() <= form.startTime.getTime()) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time must be after start time.' })
     return
   }
 
@@ -421,7 +502,7 @@ async function saveAppointment() {
       employeeId: form.employeeId,
       clientId: form.clientId,
       startTime: toLocalISOString(form.startTime),
-      endTime: toLocalISOString(endTime),
+      endTime: toLocalISOString(form.endTime),
       notes: form.notes.trim() || undefined,
     })
     totalRecords.value += 1
@@ -460,9 +541,12 @@ async function saveEditAppointment() {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
     return
   }
-  const endTime = editFormEndTime.value
-  if (!endTime) {
-    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Invalid duration.' })
+  if (!editForm.endTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
+    return
+  }
+  if (editForm.endTime.getTime() <= editForm.startTime.getTime()) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time must be after start time.' })
     return
   }
 
@@ -472,7 +556,7 @@ async function saveEditAppointment() {
       employeeId: editForm.employeeId,
       clientId: editForm.clientId,
       startTime: toLocalISOString(editForm.startTime),
-      endTime: toLocalISOString(endTime),
+      endTime: toLocalISOString(editForm.endTime),
       notes: editForm.notes.trim() || undefined,
     })
     const idx = appointments.value.findIndex((a) => a.id === updated.id)
@@ -821,21 +905,28 @@ onMounted(() => {
           />
         </div>
         <div class="field">
-          <label for="dlg-duration">Duration</label>
-          <Select
-            id="dlg-duration"
-            v-model="form.durationMinutes"
-            :options="DURATION_OPTIONS"
-            optionLabel="label"
-            optionValue="value"
-            showClear
-            :disabled="saving"
-            class="w-full"
+          <label for="dlg-end">End time *</label>
+          <DatePicker
+            id="dlg-end"
+            :key="form.endTime?.getTime() ?? 0"
+            v-model="formEndTimeModel"
+            time-only
+            hour-format="24"
+            :disabled="saving || !form.startTime"
+            fluid
           />
-        </div>
-        <div v-if="calculatedEndTime" class="field">
-          <label>End time</label>
-          <p class="calculated-end">{{ calculatedEndTime ? formatTime(calculatedEndTime.toISOString()) : '—' }}</p>
+          <div v-if="form.startTime" class="presets-row">
+            <Button
+              v-for="p in DURATION_PRESETS"
+              :key="p.value"
+              size="small"
+              severity="secondary"
+              :label="p.label"
+              :disabled="saving"
+              @click="applyDurationPreset(form.startTime, (d) => (form.endTime = d), p.value)"
+            />
+          </div>
+          <p v-if="formDurationMinutes != null" class="field-helper">{{ formatDuration(formDurationMinutes) }}</p>
         </div>
         <div class="field">
           <label for="dlg-notes">Notes</label>
@@ -911,21 +1002,28 @@ onMounted(() => {
           />
         </div>
         <div class="field">
-          <label for="edit-duration">Duration</label>
-          <Select
-            id="edit-duration"
-            v-model="editForm.durationMinutes"
-            :options="DURATION_OPTIONS"
-            optionLabel="label"
-            optionValue="value"
-            showClear
-            :disabled="saving"
-            class="w-full"
+          <label for="edit-end">End time *</label>
+          <DatePicker
+            id="edit-end"
+            :key="editForm.endTime?.getTime() ?? 0"
+            v-model="editFormEndTimeModel"
+            time-only
+            hour-format="24"
+            :disabled="saving || !editForm.startTime"
+            fluid
           />
-        </div>
-        <div v-if="editFormEndTime" class="field">
-          <label>End time</label>
-          <p class="calculated-end">{{ formatTime(editFormEndTime.toISOString()) }}</p>
+          <div v-if="editForm.startTime" class="presets-row">
+            <Button
+              v-for="p in DURATION_PRESETS"
+              :key="p.value"
+              size="small"
+              severity="secondary"
+              :label="p.label"
+              :disabled="saving"
+              @click="applyDurationPreset(editForm.startTime, (d) => (editForm.endTime = d), p.value)"
+            />
+          </div>
+          <p v-if="editFormDurationMinutes != null" class="field-helper">{{ formatDuration(editFormDurationMinutes) }}</p>
         </div>
         <div class="field">
           <label for="edit-notes">Notes</label>
@@ -1053,6 +1151,18 @@ onMounted(() => {
 
 .dialog-form .field label {
   font-weight: 500;
+}
+
+.presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.field-helper {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+  margin: 0;
 }
 
 .dialog-form .field :deep(.p-inputtext),
