@@ -1,5 +1,5 @@
 ---
-description: "Backend microservices layout, Gradle, Spring Boot, config, error handling, eventing, and testing for MedClinic 2"
+description: "Backend microservices layout, Gradle, Spring Boot, config, error handling, eventing for MedClinic 2"
 alwaysApply: false
 globs: ["backend/**/*.{java,kts,yml,yaml}"]
 ---
@@ -64,12 +64,7 @@ When adding new events:
 - Define new records in `shared-lib`.
 - Keep event payloads **backend‑oriented**, not coupling directly to frontend DTOs.
 
-### 5. Testing & environments
+### 5. After backend changes
 
-- Production‑like configuration is expected to be Docker‑based:
-  - Rely on `docker-compose.yml` for wiring services.
-  - For local tests, use the same images and service names.
-- Unit and integration tests are currently light; when adding new logic, prefer:
-  - Light unit tests around complex transformations.
-  - Integration tests focused on service boundaries (e.g. controller + service + repository).
+- Rebuild: `docker compose up -d --build <service-name>`. Service mapping: `main-service`, `auth-service`, `api-gateway`.
 

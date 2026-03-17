@@ -1,7 +1,7 @@
 ---
 description: "Docker Compose, Dockerfiles, Postgres, RabbitMQ, and container setup for MedClinic 2"
 alwaysApply: false
-globs: ["docker-compose*.yml", "**/Dockerfile*", "backend/**/*", "frontend/src/**/*"]
+globs: ["docker-compose*.yml", "**/Dockerfile*", "**/nginx.conf"]
 ---
 
 ## Docker & infrastructure rules
@@ -21,9 +21,7 @@ When adding new services, prefer to **extend the root compose** rather than intr
 
 ### 2. Backend services (Spring Boot)
 
-- All backend services are built from the shared multi‑stage `backend/Dockerfile`:
-  - Stage 1: `gradle:8.11-jdk17-alpine` builds the selected subproject (`SERVICE_NAME` arg) and produces a Boot jar.
-  - Stage 2: `eclipse-temurin:17-jre-alpine` runs `java -jar app.jar`.
+- Shared multi-stage `backend/Dockerfile`: `SERVICE_NAME` arg, env vars for config.
 - To add a new Spring Boot service:
   1. Create a new subproject under `backend/` and wire it in `settings.gradle.kts` and `build.gradle.kts`.
   2. Add a service block in `docker-compose.yml`:
@@ -34,60 +32,18 @@ When adding new services, prefer to **extend the root compose** rather than intr
 
 ### 3. Datastores & messaging
 
-- Postgres:
-  - Main DB: `postgres-main` on `5432`, mapped to `main_service_db` with `main_user/main_pass`.
-  - Auth DB: `postgres-auth` on `5433`, mapped to `auth_service_db` with `auth_user/auth_pass`.
-  - Each has its own volume (`postgres_main_data`, `postgres_auth_data`).
-- RabbitMQ:
-  - Service: `rabbitmq` on `5672` (AMQP) and `15672` (management UI).
-  - Volume: `rabbitmq_data`.
-
-When adding new services:
-
-- Prefer using **existing databases** unless there is a clear need for a separate schema.
-- Use Docker service names (`postgres-main`, `postgres-auth`, `rabbitmq`) inside containers, not `localhost`.
+- Postgres: `postgres-main` (main_service_db), `postgres-auth` (auth_service_db). RabbitMQ: `rabbitmq` on 5672/15672.
+- Use Docker service names inside containers, not `localhost`.
 
 ### 4. Frontend (Vue + Vite + Nginx)
 
-- `frontend/Dockerfile` is also multi‑stage:
-  - Stage 1: `node:22-alpine` runs `npm ci` and `npm run build-only`.
-  - Stage 2: `nginx:alpine` serves the built `dist/` folder.
-- Nginx config (`frontend/nginx.conf`):
-  - Serves SPA with `try_files ... /index.html`.
-  - Proxies `/api/` to the API gateway service (`api-gateway:8080`).
-
-When modifying frontend assets:
-
-- Keep the dev experience (`npm run dev`) working outside Docker.
-- Keep the Docker image serving **static assets** only; no dev server in containers.
+- Multi-stage: node build → nginx serves `dist/`. Nginx: SPA `try_files`, proxy `/api/` to gateway.
+- Keep `npm run dev` working outside Docker; image serves static assets only.
 
 ### 5. New services and health checks
 
-- For new services, add **healthchecks** where reasonable:
-  - Spring Boot: probe `/actuator/health`.
-  - Datastores: use built‑in health commands (e.g. `pg_isready` for Postgres).
-- Use `depends_on` with `condition: service_healthy` sparingly:
-  - Use it when a service truly cannot start without a dependency (e.g. API gateway depends on Eureka).
+- Add healthchecks (Spring Boot: `/actuator/health`; Postgres: `pg_isready`).
+- `depends_on` with `condition: service_healthy` only when truly required.
 
-### 6. Rebuild and restart after code changes
-
-**After completing code changes** to any service that runs in Docker, rebuild and restart that service so the user can test. Do not skip this step.
-
-1. **Rebuild** if the change affects the image (config, sources, assets, Dockerfile):
-   - `docker compose build <service-name>`
-2. **Restart** so the container uses the new image:
-   - `docker compose up -d <service-name>` (after build)
-3. One-liner: `docker compose up -d --build <service-name>`
-
-For **frontend-only** changes, build only the frontend (do not use `--with-dependencies`):
-
-- `docker compose build frontend`
-- `docker compose up -d frontend`
-- Or: `docker compose build frontend && docker compose up -d frontend`
-
-**Service mapping:**
-- `frontend/**` (Vue, TS, CSS, etc.) → `frontend`
-- `backend/api-gateway/**` → `api-gateway`
-- `backend/main-service/**` → `main-service`
-- `backend/auth-service/**` → `auth-service`
+After backend changes: `docker compose up -d --build <service-name>`. Frontend: see `frontend-rules.md`.
 
