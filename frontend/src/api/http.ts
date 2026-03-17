@@ -55,7 +55,7 @@ http.interceptors.response.use(
     if (!refreshPromise) {
       refreshPromise = refresh(refreshToken)
         .then((res) => {
-          useAuthStore().setTokens(res.accessToken, res.refreshToken, res.role)
+          useAuthStore().setTokens(res.accessToken, res.refreshToken, res.roles, res.permissions)
           return true
         })
         .catch(() => {

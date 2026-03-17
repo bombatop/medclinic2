@@ -57,7 +57,7 @@ export async function createDoctorWithAccount(form: CreateDoctorForm): Promise<D
       lastName: form.lastName,
       email: form.email,
       phone: form.phone || null,
-      role: 'EMPLOYEE',
+      roles: ['DOCTOR'],
     })
     .then((res) => res.data)
 

@@ -11,7 +11,8 @@ export interface LoginRequest {
 export interface AuthResponse {
   accessToken: string
   refreshToken: string
-  role: string
+  roles: string[]
+  permissions: string[]
   username: string
 }
 
@@ -22,7 +23,7 @@ export interface CurrentUser {
   lastName: string
   email: string
   phone: string | null
-  role: string
+  roles: string[]
   active: boolean
   createdAt: string
 }
