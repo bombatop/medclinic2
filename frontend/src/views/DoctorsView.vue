@@ -35,7 +35,12 @@ const totalRecords = ref(0)
 const loading = ref(true)
 const search = ref('')
 const expandedRows = ref<Doctor[]>([])
-const lazyParams = ref({ first: 0, rows: 10 })
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'lastName' as string | null,
+  sortOrder: 1 as number,
+})
 const appointmentsCache = ref<Record<number, Appointment[]>>({})
 const loadingAppointments = ref<Record<number, boolean>>({})
 
@@ -75,7 +80,13 @@ async function loadDoctors() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getDoctors({ page, size: lazyParams.value.rows })
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
+    const res = await getDoctors({ page, size: lazyParams.value.rows, sort })
     doctors.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -90,7 +101,20 @@ async function loadDoctors() {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
+  void loadDoctors()
+}
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    ...lazyParams.value,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
   void loadDoctors()
 }
 
@@ -299,8 +323,11 @@ onMounted(() => {
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       @row-expand="onRowExpand"
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No doctors found.</div>
@@ -314,7 +341,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column field="specialization" header="Specialization" sortable>
+      <Column field="specialization" header="Specialization" sortable sortField="specialization">
         <template #body="{ data }">
           {{ data.specialization || '—' }}
         </template>

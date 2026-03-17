@@ -31,7 +31,12 @@ const totalRecords = ref(0)
 const loading = ref(true)
 const search = ref('')
 const expandedRows = ref<Patient[]>([])
-const lazyParams = ref({ first: 0, rows: 10 })
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'lastName' as string | null,
+  sortOrder: 1 as number,
+})
 const appointmentsCache = ref<Record<number, Appointment[]>>({})
 const loadingAppointments = ref<Record<number, boolean>>({})
 
@@ -66,7 +71,13 @@ async function loadPatients() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getPatients({ page, size: lazyParams.value.rows })
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
+    const res = await getPatients({ page, size: lazyParams.value.rows, sort })
     patients.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -81,7 +92,20 @@ async function loadPatients() {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
+  void loadPatients()
+}
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    ...lazyParams.value,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
   void loadPatients()
 }
 
@@ -266,8 +290,11 @@ onMounted(() => {
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       @row-expand="onRowExpand"
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No patients found.</div>

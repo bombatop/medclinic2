@@ -37,6 +37,7 @@ export interface PageResponse<T> {
 export interface PageParams {
   page?: number
   size?: number
+  sort?: string
 }
 
 export interface Appointment {
@@ -53,9 +54,12 @@ export interface Appointment {
 }
 
 export function getPatients(params?: PageParams): Promise<PageResponse<Patient>> {
-  return http
-    .get<PageResponse<Patient>>('/main/clients', { params: { page: params?.page ?? 0, size: params?.size ?? 20 } })
-    .then((res) => res.data)
+  const query: Record<string, unknown> = {
+    page: params?.page ?? 0,
+    size: params?.size ?? 20,
+  }
+  if (params?.sort != null) query.sort = params.sort
+  return http.get<PageResponse<Patient>>('/main/clients', { params: query }).then((res) => res.data)
 }
 
 export function createPatient(data: CreatePatientRequest): Promise<Patient> {

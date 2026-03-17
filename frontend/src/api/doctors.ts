@@ -45,6 +45,7 @@ export interface PageResponse<T> {
 export interface PageParams {
   page?: number
   size?: number
+  sort?: string
 }
 
 export async function createDoctorWithAccount(form: CreateDoctorForm): Promise<Doctor> {
@@ -75,11 +76,12 @@ export function getAuthUser(userId: number): Promise<AuthUser> {
 }
 
 export function getDoctors(params?: PageParams): Promise<PageResponse<Doctor>> {
-  return http
-    .get<PageResponse<Doctor>>('/main/employees', {
-      params: { page: params?.page ?? 0, size: params?.size ?? 20 },
-    })
-    .then((res) => res.data)
+  const query: Record<string, unknown> = {
+    page: params?.page ?? 0,
+    size: params?.size ?? 20,
+  }
+  if (params?.sort != null) query.sort = params.sort
+  return http.get<PageResponse<Doctor>>('/main/employees', { params: query }).then((res) => res.data)
 }
 
 export function updateDoctor(id: number, data: UpdateDoctorRequest): Promise<Doctor> {
