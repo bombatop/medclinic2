@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { getCurrentUser } from '@/api/auth'
 import Menubar from 'primevue/menubar'
 import Toast from 'primevue/toast'
+import Button from 'primevue/button'
 import type { MenuItem } from 'primevue/menuitem'
 
 const router = useRouter()
@@ -16,26 +17,10 @@ onMounted(() => {
 
 const menuItems = computed<MenuItem[]>(() => {
   const items: MenuItem[] = [
-    {
-      label: 'Home',
-      icon: 'pi pi-home',
-      command: () => router.push('/'),
-    },
-    {
-      label: 'Patients',
-      icon: 'pi pi-users',
-      command: () => router.push('/patients'),
-    },
-    {
-      label: 'Appointments',
-      icon: 'pi pi-calendar',
-      command: () => router.push('/appointments'),
-    },
-    {
-      label: 'Doctors',
-      icon: 'pi pi-user',
-      command: () => router.push('/doctors'),
-    },
+    { label: 'Home', icon: 'pi pi-home', command: () => router.push('/') },
+    { label: 'Appointments', icon: 'pi pi-calendar', command: () => router.push('/appointments') },
+    { label: 'Doctors', icon: 'pi pi-user', command: () => router.push('/doctors') },
+    { label: 'Patients', icon: 'pi pi-users', command: () => router.push('/patients') },
   ]
 
   if (authStore.isAdmin) {
@@ -43,30 +28,10 @@ const menuItems = computed<MenuItem[]>(() => {
       label: 'Admin',
       icon: 'pi pi-shield',
       items: [
-        {
-          label: 'Users',
-          icon: 'pi pi-id-card',
-          command: () => router.push('/admin/users'),
-        },
+        { label: 'Users', icon: 'pi pi-id-card', command: () => router.push('/admin/users') },
       ],
     })
   }
-
-  items.push(
-    {
-      label: 'Profile',
-      icon: 'pi pi-id-card',
-      command: () => router.push('/profile'),
-    },
-    {
-      label: 'Logout',
-      icon: 'pi pi-sign-out',
-      command: () => {
-        authStore.clearTokens()
-        router.push({ name: 'login' })
-      },
-    },
-  )
 
   return items
 })
@@ -78,6 +43,17 @@ const menuItems = computed<MenuItem[]>(() => {
     <Menubar :model="menuItems">
       <template #start>
         <span class="app-title">MedClinic</span>
+      </template>
+      <template #end>
+        <div class="nav-end">
+          <Button label="Profile" icon="pi pi-id-card" text @click="router.push('/profile')" />
+          <Button
+            label="Logout"
+            icon="pi pi-sign-out"
+            text
+            @click="authStore.clearTokens(); router.push({ name: 'login' })"
+          />
+        </div>
       </template>
     </Menubar>
     <main class="app-content">
@@ -91,6 +67,12 @@ const menuItems = computed<MenuItem[]>(() => {
   font-weight: 700;
   font-size: 1.25rem;
   margin-right: 1.5rem;
+}
+
+.nav-end {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .app-content {
