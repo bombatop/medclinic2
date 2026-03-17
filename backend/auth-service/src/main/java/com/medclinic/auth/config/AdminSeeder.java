@@ -10,6 +10,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -20,7 +23,7 @@ public class AdminSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (userRepository.existsByRole(Role.ADMIN)) {
+        if (userRepository.existsByRolesContaining(Role.ADMIN)) {
             return;
         }
 
@@ -30,7 +33,7 @@ public class AdminSeeder implements ApplicationRunner {
                 .firstName("System")
                 .lastName("Administrator")
                 .email("admin@medclinic.local")
-                .role(Role.ADMIN)
+                .roles(new LinkedHashSet<>(Set.of(Role.ADMIN)))
                 .build();
 
         userRepository.save(admin);
