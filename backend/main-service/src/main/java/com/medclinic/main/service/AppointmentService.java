@@ -161,4 +161,25 @@ public class AppointmentService {
         eventPublisher.publish(saved, "UPDATED");
         return AppointmentResponse.from(saved);
     }
+
+    @Transactional(readOnly = true)
+    public Long getEmployeeAuthUserId(Long employeeId) {
+        return employeeRepository.findById(employeeId)
+                .map(Employee::getAuthUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Long getAppointmentEmployeeAuthUserId(Long appointmentId) {
+        return appointmentRepository.findByIdWithEmployee(appointmentId)
+                .map(appointment -> appointment.getEmployee().getAuthUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public Long getAppointmentEmployeeId(Long appointmentId) {
+        return appointmentRepository.findByIdWithEmployee(appointmentId)
+                .map(appointment -> appointment.getEmployee().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
+    }
 }

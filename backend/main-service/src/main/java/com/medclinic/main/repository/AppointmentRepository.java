@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface AppointmentRepository extends JpaRepository<Appointment, Long>, JpaSpecificationExecutor<Appointment> {
 
@@ -19,6 +20,9 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
     List<Appointment> findByClientId(Long clientId);
 
     List<Appointment> findByStatus(AppointmentStatus status);
+
+    @Query("SELECT a FROM Appointment a JOIN FETCH a.employee WHERE a.id = :id")
+    Optional<Appointment> findByIdWithEmployee(@Param("id") Long id);
 
     @Query("SELECT a FROM Appointment a WHERE a.employee.id = :employeeId " +
             "AND a.status <> 'CANCELLED' " +

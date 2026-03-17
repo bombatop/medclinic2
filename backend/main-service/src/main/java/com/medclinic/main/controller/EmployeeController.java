@@ -5,6 +5,7 @@ import com.medclinic.main.dto.EmployeeResponse;
 import com.medclinic.main.dto.PageResponse;
 import com.medclinic.main.dto.UpdateEmployeeRequest;
 import com.medclinic.main.exception.AccessDeniedException;
+import com.medclinic.main.security.Permissions;
 import com.medclinic.main.security.RequestContext;
 import com.medclinic.main.service.EmployeeService;
 import jakarta.validation.Valid;
@@ -27,7 +28,7 @@ public class EmployeeController {
 
     @PostMapping
     public ResponseEntity<EmployeeResponse> createEmployee(@Valid @RequestBody CreateEmployeeRequest request) {
-        requireAdmin();
+        requireEmployeeManagePermission();
         return ResponseEntity.status(HttpStatus.CREATED).body(employeeService.createEmployee(request));
     }
 
@@ -50,27 +51,27 @@ public class EmployeeController {
     @PutMapping("/{id}")
     public ResponseEntity<EmployeeResponse> updateEmployee(@PathVariable Long id,
                                                            @Valid @RequestBody UpdateEmployeeRequest request) {
-        requireAdmin();
+        requireEmployeeManagePermission();
         return ResponseEntity.ok(employeeService.updateEmployee(id, request));
     }
 
     @PatchMapping("/{id}/deactivate")
     public ResponseEntity<Void> deactivateEmployee(@PathVariable Long id) {
-        requireAdmin();
+        requireEmployeeManagePermission();
         employeeService.deactivateEmployee(id);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/activate")
     public ResponseEntity<Void> activateEmployee(@PathVariable Long id) {
-        requireAdmin();
+        requireEmployeeManagePermission();
         employeeService.activateEmployee(id);
         return ResponseEntity.noContent().build();
     }
 
-    private void requireAdmin() {
-        if (!requestContext.isAdmin()) {
-            throw new AccessDeniedException("Admin access required");
+    private void requireEmployeeManagePermission() {
+        if (!requestContext.hasPermission(Permissions.EMPLOYEE_MANAGE)) {
+            throw new AccessDeniedException("Permission employee.manage is required");
         }
     }
 }

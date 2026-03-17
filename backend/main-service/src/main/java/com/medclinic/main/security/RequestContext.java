@@ -5,6 +5,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.annotation.RequestScope;
 
+import java.util.List;
+import java.util.Set;
+
 @Component
 @RequestScope
 @RequiredArgsConstructor
@@ -28,15 +31,44 @@ public class RequestContext {
         return header;
     }
 
-    public String getRole() {
-        String header = request.getHeader("X-User-Role");
-        if (header == null) {
-            throw new IllegalStateException("Missing X-User-Role header");
-        }
-        return header;
+    public List<String> getRoles() {
+        return parseCsvHeader("X-User-Roles");
+    }
+
+    public Set<String> getPermissions() {
+        return Set.copyOf(parseCsvHeader("X-User-Permissions"));
     }
 
     public boolean isAdmin() {
-        return "ADMIN".equals(getRole());
+        return getRoles().contains("ADMIN");
+    }
+
+    public boolean hasRole(String role) {
+        return getRoles().contains(role);
+    }
+
+    public boolean hasPermission(String permission) {
+        return getPermissions().contains(permission);
+    }
+
+    public boolean hasAnyPermission(String... permissions) {
+        Set<String> granted = getPermissions();
+        for (String permission : permissions) {
+            if (granted.contains(permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<String> parseCsvHeader(String headerName) {
+        String header = request.getHeader(headerName);
+        if (header == null || header.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(header.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .toList();
     }
 }
