@@ -19,6 +19,7 @@ import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -54,12 +55,15 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
 
         try {
             Claims claims = parseToken(token);
+            List<String> roles = getStringListClaim(claims, "roles");
+            List<String> permissions = getStringListClaim(claims, "permissions");
 
-            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+            ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate()
                     .header("X-User-Id", claims.get("userId", Long.class).toString())
                     .header("X-Username", claims.getSubject())
-                    .header("X-User-Role", claims.get("role", String.class))
-                    .build();
+                    .header("X-User-Roles", String.join(",", roles))
+                    .header("X-User-Permissions", String.join(",", permissions));
+            ServerHttpRequest mutatedRequest = requestBuilder.build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
@@ -86,5 +90,13 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private List<String> getStringListClaim(Claims claims, String claimName) {
+        Object claim = claims.get(claimName);
+        if (claim instanceof List<?> values) {
+            return values.stream().map(String::valueOf).toList();
+        }
+        return Collections.emptyList();
     }
 }
