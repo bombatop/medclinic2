@@ -8,15 +8,16 @@ globs: ["backend/auth-service/**/*", "frontend/src/stores/auth.ts", "frontend/sr
 
 ### Roles
 
-- `ADMIN`, `EMPLOYEE` (`Role.java`).
-- Stored on `User.role`, propagated via JWT as `role` claim, gateway injects `X-User-Role`.
-- **ADMIN**: Full user management (`/auth/users`), employee admin in main-service.
-- **EMPLOYEE**: No admin endpoints; can log in, refresh, view/update profile, change password, use client/appointment APIs.
+- `ADMIN`, `DOCTOR`, `RECEPTIONIST` (`Role.java`) with multi-role assignment.
+- Stored on `User.roles`, propagated via JWT `roles`/`permissions` claims, gateway injects `X-User-Roles` and `X-User-Permissions`.
+- **ADMIN**: Full user management (`/auth/users`), role assignment, employee admin in main-service.
+- **DOCTOR**: Appointment self-write flows + participate permission.
+- **RECEPTIONIST**: Read-oriented baseline in v1.
 
 ### User lifecycle
 
-- **Entity**: `User` (auth-service). Fields: username (unique), password (hashed), first/last name, email (unique), phone, role, active, createdAt, updatedAt.
-- **Create** (admin only): username/email unique, password encoded, role ADMIN/EMPLOYEE, new users `active = true`.
+- **Entity**: `User` (auth-service). Fields: username (unique), password (hashed), first/last name, email (unique), phone, roles, active, createdAt, updatedAt.
+- **Create** (admin only): username/email unique, password encoded, roles assigned, new users `active = true`.
 - **Read**: Admin: all users and by id. Any user: `/auth/me` returns current user.
 - **Update**: Admin: any profile. Self: `/auth/me`. Email must stay unique.
 - **Activate/deactivate**: Admin-only, soft (inactive users cannot log in).
@@ -35,6 +36,6 @@ globs: ["backend/auth-service/**/*", "frontend/src/stores/auth.ts", "frontend/sr
 
 ### Role enforcement
 
-- Auth-service: `@PreAuthorize` for `/auth/users` (admin-only).
-- Main-service: `RequestContext.isAdmin()` (from gateway headers) guards employee admin ops.
-- Clients and appointments: any authenticated user.
+- Auth-service: permission-based `@PreAuthorize` on `/auth/users` and role-assignment endpoints.
+- Main-service: `RequestContext` reads roles/permissions from gateway headers for fine-grained checks.
+- Clients and appointments: authenticated read by default; write is permission/ownership based.

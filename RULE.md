@@ -17,7 +17,7 @@ This project uses Cursor heavily. When working here (with any account), follow t
   - Tables: use `DataTable` with local search/filtering and pagination (no backend paging yet).
 
 - **Respect roles and admin boundaries**  
-  - Roles are `ADMIN` and `EMPLOYEE`.  
+  - Roles are `ADMIN`, `DOCTOR`, and `RECEPTIONIST` (multi-role capable).  
   - Frontend gets the role from login and exposes `authStore.isAdmin`.  
   - Admin‑only features must be guarded both in the router (`meta.adminOnly`) and in the UI (hide buttons, links).
 
