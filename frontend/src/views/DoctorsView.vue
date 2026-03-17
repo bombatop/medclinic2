@@ -29,6 +29,7 @@ import Tag from 'primevue/tag'
 const toast = useToast()
 const confirm = useConfirm()
 const authStore = useAuthStore()
+const canManageDoctors = computed(() => authStore.hasPermission('employee.manage'))
 
 const doctors = ref<Doctor[]>([])
 const totalRecords = ref(0)
@@ -303,7 +304,7 @@ onMounted(() => {
         <h1>Doctors</h1>
         <p class="page-subtitle">Manage doctor profiles and schedules.</p>
       </div>
-      <Button v-if="authStore.isAdmin" label="Add Doctor" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button v-if="canManageDoctors" label="Add Doctor" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
 
     <IconField class="search-field">
@@ -362,7 +363,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column v-if="authStore.isAdmin" style="width: 9rem">
+      <Column v-if="canManageDoctors" style="width: 9rem">
         <template #body="{ data }">
           <div class="row-actions">
             <Button

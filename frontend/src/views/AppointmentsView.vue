@@ -9,6 +9,7 @@ import {
 } from '@/api/appointments'
 import { getDoctors, type Doctor } from '@/api/doctors'
 import { getPatients, type Patient } from '@/api/patients'
+import { useAuthStore } from '@/stores/auth'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
@@ -23,6 +24,29 @@ import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
 
 const toast = useToast()
+const authStore = useAuthStore()
+
+const canCreateAppointments = computed(
+  () =>
+    authStore.hasPermission('appointment.create_any') ||
+    (authStore.hasPermission('appointment.create_self') &&
+      authStore.hasPermission('appointment.participate')),
+)
+
+const canUpdateAppointments = computed(
+  () =>
+    authStore.hasPermission('appointment.update_any') ||
+    (authStore.hasPermission('appointment.update_self') &&
+      authStore.hasPermission('appointment.participate')),
+)
+
+const canUpdateAppointmentStatus = computed(
+  () =>
+    authStore.hasPermission('appointment.status_update_any') ||
+    authStore.hasPermission('appointment.status_update_self') ||
+    authStore.hasPermission('appointment.cancel_any') ||
+    authStore.hasPermission('appointment.cancel_self'),
+)
 
 const appointments = ref<Appointment[]>([])
 const totalRecords = ref(0)
@@ -475,6 +499,10 @@ function toLocalISOString(d: Date): string {
 }
 
 async function saveAppointment() {
+  if (!canCreateAppointments.value) {
+    toast.add({ severity: 'warn', summary: 'Access denied', detail: 'You cannot create appointments.' })
+    return
+  }
   if (form.employeeId == null) {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
     return
@@ -528,6 +556,10 @@ async function saveAppointment() {
 }
 
 async function saveEditAppointment() {
+  if (!canUpdateAppointments.value) {
+    toast.add({ severity: 'warn', summary: 'Access denied', detail: 'You cannot update appointments.' })
+    return
+  }
   if (editingAppointmentId.value == null) return
   if (editForm.employeeId == null) {
     toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
@@ -582,6 +614,10 @@ async function saveEditAppointment() {
 }
 
 async function changeStatus(apt: Appointment, status: Appointment['status']) {
+  if (!canUpdateAppointmentStatus.value) {
+    toast.add({ severity: 'warn', summary: 'Access denied', detail: 'You cannot update appointment status.' })
+    return
+  }
   try {
     const updated = await updateAppointmentStatus(apt.id, status)
     const idx = appointments.value.findIndex((a) => a.id === updated.id)
@@ -635,7 +671,12 @@ onMounted(() => {
         <h1>Appointments</h1>
         <p class="page-subtitle">Schedule and manage appointments.</p>
       </div>
-      <Button label="New Appointment" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button
+        v-if="canCreateAppointments"
+        label="New Appointment"
+        icon="pi pi-plus"
+        @click="openCreateDialog"
+      />
     </div>
 
     <div class="filters">
@@ -764,7 +805,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="" style="width: 4rem">
+      <Column v-if="canUpdateAppointments" header="" style="width: 4rem">
         <template #body="{ data }">
           <Button
             icon="pi pi-pencil"
@@ -777,7 +818,10 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column v-if="filteredAppointments.some((a) => a.status !== 'CANCELLED' && a.status !== 'COMPLETED')" style="width: 10rem">
+      <Column
+        v-if="canUpdateAppointmentStatus && filteredAppointments.some((a) => a.status !== 'CANCELLED' && a.status !== 'COMPLETED')"
+        style="width: 10rem"
+      >
         <template #body="{ data }">
           <div v-if="data.status === 'SCHEDULED'" class="row-actions">
             <Button
@@ -1029,7 +1073,10 @@ onMounted(() => {
           <label for="edit-notes">Notes</label>
           <Textarea id="edit-notes" v-model="editForm.notes" :disabled="saving" rows="3" autoResize />
         </div>
-        <div v-if="viewingAppointment.status !== 'CANCELLED' && viewingAppointment.status !== 'COMPLETED'" class="field detail-actions">
+        <div
+          v-if="canUpdateAppointmentStatus && viewingAppointment.status !== 'CANCELLED' && viewingAppointment.status !== 'COMPLETED'"
+          class="field detail-actions"
+        >
           <div class="row-actions">
             <Button
               v-if="viewingAppointment.status === 'SCHEDULED'"
@@ -1073,6 +1120,7 @@ onMounted(() => {
           @click="closeDetailsModal"
         />
         <Button
+          v-if="canUpdateAppointments"
           label="Update"
           icon="pi pi-check"
           :loading="saving"

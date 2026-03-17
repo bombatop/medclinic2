@@ -9,7 +9,6 @@ import {
   type User,
 } from '@/api/users'
 import { isBlankInput } from '@/utils/validation'
-import { useAuthStore } from '@/stores/auth'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
@@ -26,7 +25,6 @@ import Tag from 'primevue/tag'
 
 const toast = useToast()
 const confirm = useConfirm()
-const authStore = useAuthStore()
 
 const users = ref<User[]>([])
 const totalRecords = ref(0)
@@ -40,8 +38,9 @@ const saving = ref(false)
 const editingUserId = ref<number | null>(null)
 
 const roleOptions = [
-  { label: 'Employee', value: 'EMPLOYEE' },
   { label: 'Admin', value: 'ADMIN' },
+  { label: 'Doctor', value: 'DOCTOR' },
+  { label: 'Receptionist', value: 'RECEPTIONIST' },
 ]
 
 const form = reactive({
@@ -51,7 +50,7 @@ const form = reactive({
   lastName: '',
   email: '',
   phone: '',
-  role: 'EMPLOYEE' as 'ADMIN' | 'EMPLOYEE',
+  role: 'DOCTOR' as 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST',
 })
 
 const editForm = reactive({
@@ -108,7 +107,7 @@ function openCreateDialog() {
   form.lastName = ''
   form.email = ''
   form.phone = ''
-  form.role = 'EMPLOYEE'
+  form.role = 'DOCTOR'
   dialogVisible.value = true
 }
 
@@ -169,7 +168,7 @@ async function saveUser() {
         lastName: form.lastName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
-        role: form.role,
+        roles: [form.role],
       })
       totalRecords.value += 1
       users.value = [created, ...users.value].slice(0, lazyParams.value.rows)
@@ -294,11 +293,11 @@ onMounted(() => {
 
       <Column field="email" header="Email" />
 
-      <Column header="Role" sortable sortField="role" style="width: 8rem">
+      <Column header="Roles" style="width: 12rem">
         <template #body="{ data }">
           <Tag
-            :value="data.role"
-            :severity="data.role === 'ADMIN' ? 'warn' : 'info'"
+            :value="data.roles.join(', ')"
+            :severity="data.roles.includes('ADMIN') ? 'warn' : 'info'"
           />
         </template>
       </Column>
