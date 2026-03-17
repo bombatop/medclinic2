@@ -21,12 +21,47 @@ export interface CreateAppointmentRequest {
   notes?: string
 }
 
+export interface PageResponse<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+export interface PageParams {
+  page?: number
+  size?: number
+  sort?: string
+}
+
+export interface AppointmentFilters {
+  employeeId?: number | null
+  clientId?: number | null
+  status?: Appointment['status'] | null
+  from?: string | null
+  to?: string | null
+}
+
 export function createAppointment(data: CreateAppointmentRequest): Promise<Appointment> {
   return http.post<Appointment>('/main/appointments', data).then((res) => res.data)
 }
 
-export function getAppointments(): Promise<Appointment[]> {
-  return http.get<Appointment[]>('/main/appointments').then((res) => res.data)
+export function getAppointments(
+  params?: PageParams,
+  filters?: AppointmentFilters,
+): Promise<PageResponse<Appointment>> {
+  const query: Record<string, unknown> = {
+    page: params?.page ?? 0,
+    size: params?.size ?? 20,
+  }
+  if (params?.sort != null) query.sort = params.sort
+  if (filters?.employeeId != null) query.employeeId = filters.employeeId
+  if (filters?.clientId != null) query.clientId = filters.clientId
+  if (filters?.status != null) query.status = filters.status
+  if (filters?.from != null) query.from = filters.from
+  if (filters?.to != null) query.to = filters.to
+  return http.get<PageResponse<Appointment>>('/main/appointments', { params: query }).then((res) => res.data)
 }
 
 export function getAppointment(id: number): Promise<Appointment> {
@@ -43,6 +78,13 @@ export function getAppointmentsByClient(clientId: number): Promise<Appointment[]
   return http
     .get<Appointment[]>(`/main/appointments/client/${clientId}`)
     .then((res) => res.data)
+}
+
+export function updateAppointment(
+  id: number,
+  data: CreateAppointmentRequest,
+): Promise<Appointment> {
+  return http.put<Appointment>(`/main/appointments/${id}`, data).then((res) => res.data)
 }
 
 export function updateAppointmentStatus(

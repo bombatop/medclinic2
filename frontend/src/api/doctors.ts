@@ -34,6 +34,19 @@ export interface AuthUser {
   phone: string | null
 }
 
+export interface PageResponse<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+export interface PageParams {
+  page?: number
+  size?: number
+}
+
 export async function createDoctorWithAccount(form: CreateDoctorForm): Promise<Doctor> {
   const user = await http
     .post<AuthUser>('/auth/auth/users', {
@@ -61,8 +74,12 @@ export function getAuthUser(userId: number): Promise<AuthUser> {
   return http.get<AuthUser>(`/auth/auth/users/${userId}`).then((res) => res.data)
 }
 
-export function getDoctors(): Promise<Doctor[]> {
-  return http.get<Doctor[]>('/main/employees').then((res) => res.data)
+export function getDoctors(params?: PageParams): Promise<PageResponse<Doctor>> {
+  return http
+    .get<PageResponse<Doctor>>('/main/employees', {
+      params: { page: params?.page ?? 0, size: params?.size ?? 20 },
+    })
+    .then((res) => res.data)
 }
 
 export function updateDoctor(id: number, data: UpdateDoctorRequest): Promise<Doctor> {

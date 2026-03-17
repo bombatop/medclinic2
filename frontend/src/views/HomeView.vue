@@ -12,20 +12,20 @@ const todayCount = ref<number | null>(null)
 
 async function loadCounts() {
   try {
-    const [patients, doctors, appointments] = await Promise.all([
-      getPatients(),
-      getDoctors(),
-      getAppointments(),
+    const [patientsRes, doctorsRes, appointmentsRes] = await Promise.all([
+      getPatients({ page: 0, size: 1 }),
+      getDoctors({ page: 0, size: 1 }),
+      getAppointments({ page: 0, size: 1000 }),
     ])
-    patientsCount.value = patients.length
-    doctorsCount.value = doctors.length
-    appointmentsCount.value = appointments.length
+    patientsCount.value = patientsRes.totalElements
+    doctorsCount.value = doctorsRes.totalElements
+    appointmentsCount.value = appointmentsRes.totalElements
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    todayCount.value = appointments.filter((a) => {
+    todayCount.value = appointmentsRes.content.filter((a) => {
       const d = new Date(a.startTime)
       return d >= today && d < tomorrow && a.status !== 'CANCELLED'
     }).length

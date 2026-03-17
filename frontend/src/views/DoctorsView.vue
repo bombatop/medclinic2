@@ -31,9 +31,11 @@ const confirm = useConfirm()
 const authStore = useAuthStore()
 
 const doctors = ref<Doctor[]>([])
+const totalRecords = ref(0)
 const loading = ref(true)
 const search = ref('')
 const expandedRows = ref<Doctor[]>([])
+const lazyParams = ref({ first: 0, rows: 10 })
 const appointmentsCache = ref<Record<number, Appointment[]>>({})
 const loadingAppointments = ref<Record<number, boolean>>({})
 
@@ -72,7 +74,10 @@ function getErrorMessage(err: unknown, fallback: string): string {
 async function loadDoctors() {
   loading.value = true
   try {
-    doctors.value = await getDoctors()
+    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const res = await getDoctors({ page, size: lazyParams.value.rows })
+    doctors.value = res.content
+    totalRecords.value = res.totalElements
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
@@ -82,6 +87,11 @@ async function loadDoctors() {
   } finally {
     loading.value = false
   }
+}
+
+function onPage(event: { first: number; rows: number }) {
+  lazyParams.value = { first: event.first, rows: event.rows }
+  void loadDoctors()
 }
 
 function openCreateDialog() {
@@ -153,7 +163,8 @@ async function saveDoctor() {
         phone: form.phone.trim() || undefined,
         specialization: form.specialization.trim() || undefined,
       })
-      doctors.value.push(created)
+      totalRecords.value += 1
+      doctors.value = [created, ...doctors.value].slice(0, lazyParams.value.rows)
       toast.add({
         severity: 'success',
         summary: 'Doctor created',
@@ -280,13 +291,16 @@ onMounted(() => {
       v-model:expandedRows="expandedRows"
       :value="filteredDoctors"
       :loading="loading"
+      :lazy="true"
+      :totalRecords="totalRecords"
       dataKey="id"
       paginator
-      :rows="10"
+      :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
       removableSort
       @row-expand="onRowExpand"
+      @page="onPage"
     >
       <template #empty>
         <div class="table-empty">No doctors found.</div>

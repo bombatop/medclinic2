@@ -79,6 +79,12 @@ When modifying frontend assets:
    - `docker compose up -d <service-name>` (after build)
 3. One-liner: `docker compose up -d --build <service-name>`
 
+For **frontend-only** changes, build only the frontend (do not use `--with-dependencies`):
+
+- `docker compose build frontend`
+- `docker compose up -d frontend`
+- Or: `docker compose build frontend && docker compose up -d frontend`
+
 **Service mapping:**
 - `frontend/**` (Vue, TS, CSS, etc.) → `frontend`
 - `backend/api-gateway/**` → `api-gateway`

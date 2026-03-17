@@ -29,8 +29,25 @@ export interface UpdateUserRequest {
   phone?: string
 }
 
-export function getUsers(): Promise<User[]> {
-  return http.get<User[]>('/auth/auth/users').then((res) => res.data)
+export interface PageResponse<T> {
+  content: T[]
+  totalElements: number
+  totalPages: number
+  number: number
+  size: number
+}
+
+export interface PageParams {
+  page?: number
+  size?: number
+}
+
+export function getUsers(params?: PageParams): Promise<PageResponse<User>> {
+  return http
+    .get<PageResponse<User>>('/auth/auth/users', {
+      params: { page: params?.page ?? 0, size: params?.size ?? 20 },
+    })
+    .then((res) => res.data)
 }
 
 export function createUser(data: CreateUserRequest): Promise<User> {

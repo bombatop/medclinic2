@@ -2,12 +2,15 @@ package com.medclinic.main.controller;
 
 import com.medclinic.main.dto.CreateEmployeeRequest;
 import com.medclinic.main.dto.EmployeeResponse;
+import com.medclinic.main.dto.PageResponse;
 import com.medclinic.main.dto.UpdateEmployeeRequest;
 import com.medclinic.main.exception.AccessDeniedException;
 import com.medclinic.main.security.RequestContext;
 import com.medclinic.main.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,8 +32,9 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmployeeResponse>> getAllEmployees() {
-        return ResponseEntity.ok(employeeService.getAllEmployees());
+    public ResponseEntity<PageResponse<EmployeeResponse>> getAllEmployees(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(PageResponse.from(employeeService.getAllEmployees(pageable)));
     }
 
     @GetMapping("/{id}")
