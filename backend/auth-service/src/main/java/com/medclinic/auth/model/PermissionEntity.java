@@ -16,18 +16,18 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "roles")
+@Table(name = "permissions")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Role {
+public class PermissionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 64)
+    @Column(nullable = false, unique = true, length = 128)
     private String code;
 
     @Column(nullable = false, length = 128)
@@ -42,7 +42,7 @@ public class Role {
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean system = false;
+    private boolean system = true;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
