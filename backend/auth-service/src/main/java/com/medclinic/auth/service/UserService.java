@@ -36,7 +36,7 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(CreateUserRequest request, String actorUsername, Long actorUserId) {
         if (userRepository.existsByUsername(request.username())) {
             throw new ConflictException("Username already taken");
         }
@@ -55,7 +55,10 @@ public class UserService {
                 .roles(new LinkedHashSet<>(roles))
                 .build();
 
-        return UserResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_CREATED", "USER",
+                String.valueOf(saved.getId()), "username=" + saved.getUsername() + ";roles=" + rbacService.joinRoles(roles));
+        return UserResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -78,26 +81,33 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return UserResponse.from(userRepository.save(applyProfileUpdate(user, request)));
+        User updated = userRepository.save(applyProfileUpdate(user, request));
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_UPDATED", "USER",
+                String.valueOf(updated.getId()), "profile updated");
+        return UserResponse.from(updated);
     }
 
     @Transactional
-    public void deactivateUser(Long id) {
+    public void deactivateUser(Long id, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setActive(false);
         userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_DEACTIVATED", "USER",
+                String.valueOf(user.getId()), "");
     }
 
     @Transactional
-    public void activateUser(Long id) {
+    public void activateUser(Long id, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setActive(true);
         userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_ACTIVATED", "USER",
+                String.valueOf(user.getId()), "");
     }
 
     @Transactional(readOnly = true)
@@ -165,11 +175,19 @@ public class UserService {
         Set<Role> beforeRoles = rbacService.resolveRoles(user);
         Set<Role> afterRoles = rbacService.resolveRoleEntitiesByCodes(request.roles());
 
+        Long actorId = resolveActorUserId(actorUsername, actorUserId);
+        if (actorId != null && actorId.equals(user.getId()) && !afterRoles.isEmpty()) {
+            Set<String> afterPermissions = rbacService.resolvePermissionCodes(afterRoles);
+            if (!afterPermissions.contains("users.manage_roles")) {
+                throw new ConflictException("Cannot remove your own admin privileges");
+            }
+        }
+
         user.setRoles(new LinkedHashSet<>(afterRoles));
         userRepository.save(user);
 
         RoleAssignmentAudit audit = RoleAssignmentAudit.builder()
-                .actorUserId(resolveActorUserId(actorUsername, actorUserId))
+                .actorUserId(actorId)
                 .actorUsername(actorUsername)
                 .targetUserId(user.getId())
                 .rolesBefore(rbacService.joinRoles(beforeRoles))
@@ -178,7 +196,7 @@ public class UserService {
         roleAssignmentAuditRepository.save(audit);
         rbacAdminService.logAudit(
                 actorUsername,
-                actorUserId,
+                actorId,
                 "USER_ROLES_UPDATED",
                 "USER",
                 String.valueOf(user.getId()),

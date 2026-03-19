@@ -60,7 +60,7 @@ const menuItems = computed<MenuItem[]>(() => {
             label="Logout"
             icon="pi pi-sign-out"
             text
-            @click="authStore.clearTokens(); router.push({ name: 'login' })"
+            @click="authStore.clearTokens().then(() => router.push({ name: 'login' }))"
           />
         </div>
       </template>

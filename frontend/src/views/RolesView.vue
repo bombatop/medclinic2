@@ -189,7 +189,16 @@ onMounted(() => {
         <template #body="{ data }">
           <div class="row-actions">
             <Button icon="pi pi-pencil" text rounded size="small" @click="openEditDialog(data)" />
-            <Button icon="pi pi-trash" severity="danger" text rounded size="small" @click="confirmDelete(data)" />
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              text
+              rounded
+              size="small"
+              :disabled="data.system"
+              v-tooltip.top="data.system ? 'System roles cannot be deleted' : 'Delete'"
+              @click="confirmDelete(data)"
+            />
           </div>
         </template>
       </Column>

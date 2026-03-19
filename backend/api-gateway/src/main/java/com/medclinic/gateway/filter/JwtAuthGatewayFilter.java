@@ -31,6 +31,7 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/auth/login",
             "/api/auth/auth/refresh",
+            "/api/auth/auth/logout",
             "/health",
             "/actuator"
     );

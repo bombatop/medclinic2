@@ -38,7 +38,7 @@ For each backend resource, create a typed client in `src/api/` using `http.ts`. 
 
 ### 6. Auth & role handling
 
-- `useAuthStore`: `isAuthenticated`, `isAdmin`. Router: `meta.public` (login only), `meta.adminOnly` (admin routes). Use `authStore.isAdmin` for UI; backend enforces.
+- `useAuthStore`: `isAuthenticated`, `roles`, `permissions`, `hasPermission(code)`, `canAccessAdmin`, `canManageRbac`. Router: `meta.public` (login only), `meta.adminOnly` (requires `canAccessAdmin`), `meta.permission` (single permission code). Use `authStore.hasPermission(code)` or `authStore.canAccessAdmin` for UI; backend enforces.
 
 ### 7. Avoid
 
