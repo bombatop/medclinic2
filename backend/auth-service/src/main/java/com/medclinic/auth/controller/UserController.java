@@ -17,6 +17,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * User management API. Endpoints accept optional X-User-Id header for audit actor.
+ * When present (set by gateway from JWT), it is used in rbac_audit_log; when absent,
+ * actor is resolved from Authentication.getName() via username lookup.
+ */
 @RestController
 @RequestMapping("/auth/users")
 @RequiredArgsConstructor
