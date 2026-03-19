@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,8 +40,19 @@ public class RbacAdminService {
     private final RbacAuditLogRepository rbacAuditLogRepository;
 
     @Transactional(readOnly = true)
-    public Page<RoleResponse> getRoles(Pageable pageable) {
-        return roleRepository.findAll(pageable).map(RoleResponse::from);
+    public Page<RoleResponse> getRoles(String search, Pageable pageable) {
+        Specification<Role> spec = (root, query, cb) -> {
+            if (search == null || search.isBlank()) {
+                return cb.conjunction();
+            }
+            String pattern = "%" + search.toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("code")), pattern),
+                    cb.like(cb.lower(root.get("name")), pattern),
+                    cb.like(cb.lower(cb.coalesce(root.get("description"), "")), pattern)
+            );
+        };
+        return roleRepository.findAll(spec, pageable).map(RoleResponse::from);
     }
 
     @Transactional(readOnly = true)

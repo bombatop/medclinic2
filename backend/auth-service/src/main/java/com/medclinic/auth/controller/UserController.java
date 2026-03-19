@@ -40,8 +40,9 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_users.read_all')")
     public ResponseEntity<PageResponse<UserResponse>> getAllUsers(
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(userService.getAllUsers(pageable)));
+        return ResponseEntity.ok(PageResponse.from(userService.getAllUsers(search, pageable)));
     }
 
     @GetMapping("/{id}")

@@ -10,6 +10,7 @@ import com.medclinic.main.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +46,19 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<EmployeeResponse> getAllEmployees(Pageable pageable) {
-        return employeeRepository.findAll(pageable).map(EmployeeResponse::from);
+    public Page<EmployeeResponse> getAllEmployees(String search, Pageable pageable) {
+        Specification<Employee> spec = (root, query, cb) -> {
+            if (search == null || search.isBlank()) {
+                return cb.conjunction();
+            }
+            String pattern = "%" + search.toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("firstName")), pattern),
+                    cb.like(cb.lower(root.get("lastName")), pattern),
+                    cb.like(cb.lower(cb.coalesce(root.get("specialization"), "")), pattern)
+            );
+        };
+        return employeeRepository.findAll(spec, pageable).map(EmployeeResponse::from);
     }
 
     @Transactional(readOnly = true)

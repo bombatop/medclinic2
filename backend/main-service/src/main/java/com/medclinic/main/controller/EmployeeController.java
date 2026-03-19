@@ -34,8 +34,9 @@ public class EmployeeController {
 
     @GetMapping
     public ResponseEntity<PageResponse<EmployeeResponse>> getAllEmployees(
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(employeeService.getAllEmployees(pageable)));
+        return ResponseEntity.ok(PageResponse.from(employeeService.getAllEmployees(search, pageable)));
     }
 
     @GetMapping("/{id}")

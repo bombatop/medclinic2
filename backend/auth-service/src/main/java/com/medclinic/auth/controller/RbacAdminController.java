@@ -30,8 +30,10 @@ public class RbacAdminController {
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('PERM_users.read_all')")
-    public ResponseEntity<PageResponse<RoleResponse>> getRoles(@PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(rbacAdminService.getRoles(pageable)));
+    public ResponseEntity<PageResponse<RoleResponse>> getRoles(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(PageResponse.from(rbacAdminService.getRoles(search, pageable)));
     }
 
     @GetMapping("/roles/{id}")
