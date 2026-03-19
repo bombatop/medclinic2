@@ -23,13 +23,22 @@ const menuItems = computed<MenuItem[]>(() => {
     { label: 'Patients', icon: 'pi pi-users', command: () => router.push('/patients') },
   ]
 
-  if (authStore.isAdmin) {
+  if (authStore.canAccessAdmin) {
+    const adminItems: MenuItem[] = []
+    if (authStore.hasPermission('users.read_all')) {
+      adminItems.push({ label: 'Users', icon: 'pi pi-id-card', command: () => router.push('/admin/users') })
+    }
+    if (authStore.canManageRbac) {
+      adminItems.push(
+        { label: 'Roles', icon: 'pi pi-sitemap', command: () => router.push('/admin/roles') },
+        { label: 'Role Permissions', icon: 'pi pi-lock', command: () => router.push('/admin/role-permissions') },
+        { label: 'RBAC Audit', icon: 'pi pi-history', command: () => router.push('/admin/rbac-audit') },
+      )
+    }
     items.push({
       label: 'Admin',
       icon: 'pi pi-shield',
-      items: [
-        { label: 'Users', icon: 'pi pi-id-card', command: () => router.push('/admin/users') },
-      ],
+      items: adminItems,
     })
   }
 
