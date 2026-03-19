@@ -24,10 +24,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         return userRepository.findByUsername(username)
                 .map(user -> {
                     var roles = rbacService.resolveRoles(user);
-                    var permissions = rbacService.resolvePermissions(roles);
+                    var permissionCodes = rbacService.resolvePermissionCodes(roles);
                     var authorities = new ArrayList<SimpleGrantedAuthority>();
-                    roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role.name())));
-                    permissions.forEach(permission -> authorities.add(new SimpleGrantedAuthority("PERM_" + permission.code())));
+                    roles.forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role.getCode())));
+                    permissionCodes.forEach(permissionCode -> authorities.add(new SimpleGrantedAuthority("PERM_" + permissionCode)));
 
                     return new User(
                             user.getUsername(),
