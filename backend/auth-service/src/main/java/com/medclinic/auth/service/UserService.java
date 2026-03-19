@@ -165,11 +165,19 @@ public class UserService {
         Set<Role> beforeRoles = rbacService.resolveRoles(user);
         Set<Role> afterRoles = rbacService.resolveRoleEntitiesByCodes(request.roles());
 
+        Long actorId = resolveActorUserId(actorUsername, actorUserId);
+        if (actorId != null && actorId.equals(user.getId()) && !afterRoles.isEmpty()) {
+            Set<String> afterPermissions = rbacService.resolvePermissionCodes(afterRoles);
+            if (!afterPermissions.contains("users.manage_roles")) {
+                throw new ConflictException("Cannot remove your own admin privileges");
+            }
+        }
+
         user.setRoles(new LinkedHashSet<>(afterRoles));
         userRepository.save(user);
 
         RoleAssignmentAudit audit = RoleAssignmentAudit.builder()
-                .actorUserId(resolveActorUserId(actorUsername, actorUserId))
+                .actorUserId(actorId)
                 .actorUsername(actorUsername)
                 .targetUserId(user.getId())
                 .rolesBefore(rbacService.joinRoles(beforeRoles))
@@ -178,7 +186,7 @@ public class UserService {
         roleAssignmentAuditRepository.save(audit);
         rbacAdminService.logAudit(
                 actorUsername,
-                actorUserId,
+                actorId,
                 "USER_ROLES_UPDATED",
                 "USER",
                 String.valueOf(user.getId()),
