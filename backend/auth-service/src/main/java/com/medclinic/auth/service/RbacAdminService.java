@@ -85,6 +85,9 @@ public class RbacAdminService {
     @Transactional
     public void deleteRole(Long roleId, String actorUsername, Long actorUserId) {
         Role role = findRole(roleId);
+        if (role.isSystem()) {
+            throw new ConflictException("Cannot delete system role: " + role.getCode());
+        }
         List<User> usersWithRole = userRepository.findByRolesId(roleId);
         for (User user : usersWithRole) {
             user.getRoles().removeIf(existingRole -> Objects.equals(existingRole.getId(), roleId));
