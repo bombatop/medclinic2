@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -16,7 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class GatewayHeaderFilter extends OncePerRequestFilter {
+
+    private final JwtUtils jwtUtils;
 
     @Override
     protected void doFilterInternal(
@@ -25,30 +29,23 @@ public class GatewayHeaderFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String userId = request.getHeader("X-User-Id");
-        String username = request.getHeader("X-Username");
-        String rolesHeader = request.getHeader("X-User-Roles");
-        String permissionsHeader = request.getHeader("X-User-Permissions");
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            if (jwtUtils.isTokenValid(token) && !jwtUtils.isRefreshToken(token)) {
+                String username = jwtUtils.getUsernameFromToken(token);
+                List<String> roles = jwtUtils.getRolesFromToken(token);
+                List<String> permissions = jwtUtils.getPermissionsFromToken(token);
 
-        if (userId != null && username != null) {
-            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
-            parseCsv(rolesHeader).forEach(value -> authorities.add(new SimpleGrantedAuthority("ROLE_" + value)));
-            parseCsv(permissionsHeader).forEach(value -> authorities.add(new SimpleGrantedAuthority("PERM_" + value)));
+                List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+                roles.forEach(value -> authorities.add(new SimpleGrantedAuthority("ROLE_" + value)));
+                permissions.forEach(value -> authorities.add(new SimpleGrantedAuthority("PERM_" + value)));
 
-            var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                var authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private List<String> parseCsv(String value) {
-        if (value == null || value.isBlank()) {
-            return List.of();
-        }
-        return java.util.Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(part -> !part.isBlank())
-                .toList();
     }
 }
