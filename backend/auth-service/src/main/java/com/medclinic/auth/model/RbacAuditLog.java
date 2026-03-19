@@ -6,7 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,46 +15,40 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 @Entity
-@Table(name = "roles")
+@Table(name = "rbac_audit_log")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Role {
+public class RbacAuditLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 64)
-    private String code;
-
-    @Column(nullable = false, length = 128)
-    private String name;
-
-    @Column(length = 512)
-    private String description;
+    @Column(nullable = false)
+    private Long actorUserId;
 
     @Column(nullable = false)
-    @Builder.Default
-    private boolean active = true;
+    private String actorUsername;
 
-    @Column(nullable = false)
-    @Builder.Default
-    private boolean system = false;
+    @Column(nullable = false, length = 64)
+    private String action;
+
+    @Column(nullable = false, length = 64)
+    private String targetType;
+
+    @Column(length = 128)
+    private String targetRef;
+
+    @Column(nullable = false, length = 1024)
+    private String details;
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    private Instant updatedAt;
-
     @PrePersist
     protected void onCreate() {
         createdAt = Instant.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = Instant.now();
     }
 }

@@ -32,6 +32,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleAssignmentAuditRepository roleAssignmentAuditRepository;
     private final RbacService rbacService;
+    private final RbacAdminService rbacAdminService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -162,7 +163,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Set<Role> beforeRoles = rbacService.resolveRoles(user);
-        Set<Role> afterRoles = rbacService.normalizeRoles(request.roles());
+        Set<Role> afterRoles = rbacService.resolveRoleEntitiesByCodes(request.roles());
 
         user.setRoles(new LinkedHashSet<>(afterRoles));
         userRepository.save(user);
@@ -175,12 +176,20 @@ public class UserService {
                 .rolesAfter(rbacService.joinRoles(afterRoles))
                 .build();
         roleAssignmentAuditRepository.save(audit);
+        rbacAdminService.logAudit(
+                actorUsername,
+                actorUserId,
+                "USER_ROLES_UPDATED",
+                "USER",
+                String.valueOf(user.getId()),
+                "before=" + rbacService.joinRoles(beforeRoles) + ";after=" + rbacService.joinRoles(afterRoles)
+        );
 
         return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(afterRoles));
     }
 
     private Set<Role> resolveRequestedRoles(CreateUserRequest request) {
-        return rbacService.normalizeRoles(request.roles());
+        return rbacService.resolveRoleEntitiesByCodes(request.roles());
     }
 
     private Long resolveActorUserId(String actorUsername, Long actorUserId) {

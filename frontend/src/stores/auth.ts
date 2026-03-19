@@ -28,6 +28,10 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => roles.value.includes('ADMIN'))
   const isDoctor = computed(() => roles.value.includes('DOCTOR'))
   const isReceptionist = computed(() => roles.value.includes('RECEPTIONIST'))
+  const canAccessAdmin = computed(
+    () => hasAnyPermission(['users.read_all', 'users.manage', 'users.manage_roles']),
+  )
+  const canManageRbac = computed(() => hasPermission('users.manage_roles'))
 
   function setTokens(access: string, refresh: string, userRoles: string[], userPermissions: string[] = []) {
     token.value = access
@@ -55,6 +59,10 @@ export const useAuthStore = defineStore('auth', () => {
     return permissions.value.includes(permission)
   }
 
+  function hasAnyPermission(requiredPermissions: string[]): boolean {
+    return requiredPermissions.some((permission) => permissions.value.includes(permission))
+  }
+
   return {
     token,
     refreshToken,
@@ -65,7 +73,10 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isDoctor,
     isReceptionist,
+    canAccessAdmin,
+    canManageRbac,
     hasPermission,
+    hasAnyPermission,
     setTokens,
     clearTokens,
   }

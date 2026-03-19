@@ -7,7 +7,7 @@ export interface User {
   lastName: string
   email: string
   phone: string | null
-  roles: Array<'ADMIN' | 'DOCTOR' | 'RECEPTIONIST'>
+  roles: string[]
   active: boolean
   createdAt: string
 }
@@ -19,7 +19,7 @@ export interface CreateUserRequest {
   lastName: string
   email: string
   phone?: string
-  roles: Array<'ADMIN' | 'DOCTOR' | 'RECEPTIONIST'>
+  roles: string[]
 }
 
 export interface UpdateUserRequest {

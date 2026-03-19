@@ -2,7 +2,6 @@ package com.medclinic.auth.service;
 
 import com.medclinic.auth.dto.AuthResponse;
 import com.medclinic.auth.dto.LoginRequest;
-import com.medclinic.auth.model.Permission;
 import com.medclinic.auth.model.Role;
 import com.medclinic.auth.model.User;
 import com.medclinic.auth.repository.UserRepository;
@@ -40,12 +39,12 @@ public class AuthService {
         }
 
         java.util.Set<Role> roles = rbacService.resolveRoles(user);
-        java.util.Set<Permission> permissions = rbacService.resolvePermissions(roles);
+        java.util.Set<String> permissions = rbacService.resolvePermissionCodes(roles);
         String accessToken = jwtUtils.generateAccessToken(
                 user.getId(),
                 user.getUsername(),
                 rbacService.toRoleCodes(roles),
-                rbacService.toPermissionCodes(permissions)
+                permissions.stream().toList()
         );
         String refreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
 
@@ -53,7 +52,7 @@ public class AuthService {
                 accessToken,
                 refreshToken,
                 rbacService.toRoleCodes(roles),
-                rbacService.toPermissionCodes(permissions),
+                permissions.stream().toList(),
                 user.getUsername()
         );
     }
@@ -72,12 +71,12 @@ public class AuthService {
         }
 
         java.util.Set<Role> roles = rbacService.resolveRoles(user);
-        java.util.Set<Permission> permissions = rbacService.resolvePermissions(roles);
+        java.util.Set<String> permissions = rbacService.resolvePermissionCodes(roles);
         String newAccessToken = jwtUtils.generateAccessToken(
                 user.getId(),
                 user.getUsername(),
                 rbacService.toRoleCodes(roles),
-                rbacService.toPermissionCodes(permissions)
+                permissions.stream().toList()
         );
         String newRefreshToken = jwtUtils.generateRefreshToken(user.getId(), user.getUsername());
 
@@ -85,7 +84,7 @@ public class AuthService {
                 newAccessToken,
                 newRefreshToken,
                 rbacService.toRoleCodes(roles),
-                rbacService.toPermissionCodes(permissions),
+                permissions.stream().toList(),
                 user.getUsername()
         );
     }

@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "role_permissions", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_role_permission", columnNames = {"role", "permission"})
+        @UniqueConstraint(name = "uk_role_permission", columnNames = {"role_id", "permission_id"})
 })
 @Data
 @Builder
@@ -20,11 +20,11 @@ public class RolePermission {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Permission permission;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "permission_id", nullable = false)
+    private PermissionEntity permission;
 }

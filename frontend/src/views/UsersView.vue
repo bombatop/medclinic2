@@ -5,9 +5,12 @@ import {
   createUser,
   deactivateUser,
   getUsers,
+  getUserRoles,
+  updateUserRoles,
   updateUser,
   type User,
 } from '@/api/users'
+import { getRoles as getRbacRoles, type Role as RbacRole } from '@/api/rbac'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -19,8 +22,8 @@ import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
+import MultiSelect from 'primevue/multiselect'
 import Password from 'primevue/password'
-import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 
 const toast = useToast()
@@ -29,6 +32,7 @@ const confirm = useConfirm()
 const users = ref<User[]>([])
 const totalRecords = ref(0)
 const loading = ref(true)
+const loadingRoles = ref(false)
 const search = ref('')
 const lazyParams = ref({ first: 0, rows: 10 })
 
@@ -37,11 +41,7 @@ const dialogMode = ref<'create' | 'edit'>('create')
 const saving = ref(false)
 const editingUserId = ref<number | null>(null)
 
-const roleOptions = [
-  { label: 'Admin', value: 'ADMIN' },
-  { label: 'Doctor', value: 'DOCTOR' },
-  { label: 'Receptionist', value: 'RECEPTIONIST' },
-]
+const roleOptions = ref<Array<{ label: string; value: string }>>([])
 
 const form = reactive({
   username: '',
@@ -50,7 +50,7 @@ const form = reactive({
   lastName: '',
   email: '',
   phone: '',
-  role: 'DOCTOR' as 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST',
+  roles: ['DOCTOR'] as string[],
 })
 
 const editForm = reactive({
@@ -58,6 +58,7 @@ const editForm = reactive({
   lastName: '',
   email: '',
   phone: '',
+  roles: [] as string[],
 })
 
 const filteredUsers = computed(() => {
@@ -93,6 +94,26 @@ async function loadUsers() {
   }
 }
 
+async function loadRoleOptions() {
+  loadingRoles.value = true
+  try {
+    const res = await getRbacRoles({ page: 0, size: 200 })
+    const roles = res.content
+      .filter((role) => role.active)
+      .sort((a, b) => a.code.localeCompare(b.code))
+      .map((role: RbacRole) => ({ label: `${role.name} (${role.code})`, value: role.code }))
+    roleOptions.value = roles
+  } catch (err: unknown) {
+    toast.add({
+      severity: 'error',
+      summary: 'Roles load failed',
+      detail: getErrorMessage(err, 'Unable to load roles.'),
+    })
+  } finally {
+    loadingRoles.value = false
+  }
+}
+
 function onPage(event: { first: number; rows: number }) {
   lazyParams.value = { first: event.first, rows: event.rows }
   void loadUsers()
@@ -107,17 +128,24 @@ function openCreateDialog() {
   form.lastName = ''
   form.email = ''
   form.phone = ''
-  form.role = 'DOCTOR'
+  form.roles = ['DOCTOR']
   dialogVisible.value = true
 }
 
-function openEditDialog(user: User) {
+async function openEditDialog(user: User) {
   dialogMode.value = 'edit'
   editingUserId.value = user.id
   editForm.firstName = user.firstName
   editForm.lastName = user.lastName
   editForm.email = user.email
   editForm.phone = user.phone ?? ''
+  editForm.roles = user.roles
+  try {
+    const current = await getUserRoles(user.id)
+    editForm.roles = [...current.roles]
+  } catch {
+    // fallback to table data if detailed role fetch fails
+  }
   dialogVisible.value = true
 }
 
@@ -143,6 +171,10 @@ async function saveUser() {
       toast.add({ severity: 'warn', summary: 'Validation', detail: 'Email is required.' })
       return
     }
+    if (!form.roles.length) {
+      toast.add({ severity: 'warn', summary: 'Validation', detail: 'At least one role is required.' })
+      return
+    }
   } else {
     if (isBlankInput(editForm.firstName)) {
       toast.add({ severity: 'warn', summary: 'Validation', detail: 'First name is required.' })
@@ -154,6 +186,10 @@ async function saveUser() {
     }
     if (isBlankInput(editForm.email)) {
       toast.add({ severity: 'warn', summary: 'Validation', detail: 'Email is required.' })
+      return
+    }
+    if (!editForm.roles.length) {
+      toast.add({ severity: 'warn', summary: 'Validation', detail: 'At least one role is required.' })
       return
     }
   }
@@ -168,7 +204,7 @@ async function saveUser() {
         lastName: form.lastName.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
-        roles: [form.role],
+        roles: form.roles,
       })
       totalRecords.value += 1
       users.value = [created, ...users.value].slice(0, lazyParams.value.rows)
@@ -184,6 +220,8 @@ async function saveUser() {
         email: editForm.email.trim(),
         phone: editForm.phone.trim() || undefined,
       })
+      const updatedRoles = await updateUserRoles(updated.id, editForm.roles)
+      updated.roles = updatedRoles.roles
       const idx = users.value.findIndex((u) => u.id === updated.id)
       if (idx >= 0) users.value[idx] = updated
       toast.add({
@@ -245,6 +283,7 @@ function formatDate(value: string): string {
 }
 
 onMounted(() => {
+  void loadRoleOptions()
   void loadUsers()
 })
 </script>
@@ -369,14 +408,17 @@ onMounted(() => {
             />
           </div>
           <div class="field">
-            <label for="dlg-role">Role *</label>
-            <Select
+            <label for="dlg-role">Roles *</label>
+            <MultiSelect
               id="dlg-role"
-              v-model="form.role"
+              v-model="form.roles"
               :options="roleOptions"
               option-label="label"
               option-value="value"
-              :disabled="saving"
+              :disabled="saving || loadingRoles"
+              display="chip"
+              placeholder="Select roles"
+              class="w-full"
             />
           </div>
           <div class="field">
@@ -413,6 +455,20 @@ onMounted(() => {
           <div class="field">
             <label for="dlg-phone">Phone</label>
             <InputText id="dlg-phone" v-model="editForm.phone" :disabled="saving" />
+          </div>
+          <div class="field">
+            <label for="edit-dlg-role">Roles *</label>
+            <MultiSelect
+              id="edit-dlg-role"
+              v-model="editForm.roles"
+              :options="roleOptions"
+              option-label="label"
+              option-value="value"
+              :disabled="saving || loadingRoles"
+              display="chip"
+              placeholder="Select roles"
+              class="w-full"
+            />
           </div>
         </template>
       </div>
