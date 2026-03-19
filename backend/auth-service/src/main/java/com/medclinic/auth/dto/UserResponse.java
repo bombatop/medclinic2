@@ -1,6 +1,5 @@
 package com.medclinic.auth.dto;
 
-import com.medclinic.auth.model.Role;
 import com.medclinic.auth.model.User;
 
 import java.time.Instant;
@@ -13,12 +12,14 @@ public record UserResponse(
         String lastName,
         String email,
         String phone,
-        Set<Role> roles,
+        Set<String> roles,
         boolean active,
         Instant createdAt
 ) {
     public static UserResponse from(User user) {
-        Set<Role> roles = user.getEffectiveRoles();
+        Set<String> roles = user.getEffectiveRoles().stream()
+                .map(role -> role.getCode())
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
         return new UserResponse(
                 user.getId(),
                 user.getUsername(),

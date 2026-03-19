@@ -1,11 +1,10 @@
 package com.medclinic.auth.dto;
 
-import com.medclinic.auth.model.Role;
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 
 import java.util.Set;
 
 public record UpdateUserRolesRequest(
-        @NotEmpty Set<@NotNull Role> roles
+        @NotEmpty Set<@NotBlank String> roles
 ) {}
