@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import {
   activateUser,
   createUser,
@@ -61,16 +62,6 @@ const editForm = reactive({
   roles: [] as string[],
 })
 
-const filteredUsers = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return users.value
-  return users.value.filter((u) => {
-    const haystack =
-      `${u.username} ${u.firstName} ${u.lastName} ${u.email}`.toLowerCase()
-    return haystack.includes(q)
-  })
-})
-
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
@@ -80,7 +71,11 @@ async function loadUsers() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getUsers({ page, size: lazyParams.value.rows })
+    const res = await getUsers({
+      page,
+      size: lazyParams.value.rows,
+      search: search.value.trim() || undefined,
+    })
     users.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -115,9 +110,20 @@ async function loadRoleOptions() {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
   void loadUsers()
 }
+
+const debouncedLoadUsers = useDebounceFn(() => loadUsers(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadUsers()
+})
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -306,7 +312,7 @@ onMounted(() => {
     </IconField>
 
     <DataTable
-      :value="filteredUsers"
+      :value="users"
       :loading="loading"
       :lazy="true"
       :totalRecords="totalRecords"
@@ -315,16 +321,15 @@ onMounted(() => {
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
       stripedRows
-      removableSort
       @page="onPage"
     >
       <template #empty>
         <div class="table-empty">No users found.</div>
       </template>
 
-      <Column field="username" header="Username" sortable />
+      <Column field="username" header="Username" />
 
-      <Column header="Name" sortable sortField="lastName">
+      <Column header="Name">
         <template #body="{ data }">
           {{ data.firstName }} {{ data.lastName }}
         </template>
@@ -341,7 +346,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="Status" sortable sortField="active" style="width: 8rem">
+      <Column header="Status" style="width: 8rem">
         <template #body="{ data }">
           <Tag
             :value="data.active ? 'Active' : 'Inactive'"
@@ -350,7 +355,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="Created" sortable sortField="createdAt">
+      <Column header="Created">
         <template #body="{ data }">
           {{ formatDate(data.createdAt) }}
         </template>

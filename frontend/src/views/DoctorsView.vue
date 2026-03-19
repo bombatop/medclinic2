@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import { useAuthStore } from '@/stores/auth'
 import {
   activateDoctor,
@@ -62,16 +63,6 @@ const form = reactive({
   specialization: '',
 })
 
-const filteredDoctors = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return doctors.value
-  return doctors.value.filter((d) => {
-    const haystack =
-      `${d.firstName} ${d.lastName} ${d.specialization ?? ''}`.toLowerCase()
-    return haystack.includes(q)
-  })
-})
-
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
@@ -87,7 +78,12 @@ async function loadDoctors() {
       sortField != null && sortOrder !== 0
         ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
         : undefined
-    const res = await getDoctors({ page, size: lazyParams.value.rows, sort })
+    const res = await getDoctors({
+      page,
+      size: lazyParams.value.rows,
+      sort,
+      search: search.value.trim() || undefined,
+    })
     doctors.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -112,12 +108,20 @@ function onPage(event: { first: number; rows: number }) {
 
 function onSort(event: { sortField?: string; sortOrder?: number }) {
   lazyParams.value = {
-    ...lazyParams.value,
+    first: 0,
+    rows: lazyParams.value.rows,
     sortField: event.sortField ?? null,
     sortOrder: event.sortOrder ?? 0,
   }
   void loadDoctors()
 }
+
+const debouncedLoadDoctors = useDebounceFn(() => loadDoctors(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadDoctors()
+})
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -314,7 +318,7 @@ onMounted(() => {
 
     <DataTable
       v-model:expandedRows="expandedRows"
-      :value="filteredDoctors"
+      :value="doctors"
       :loading="loading"
       :lazy="true"
       :totalRecords="totalRecords"

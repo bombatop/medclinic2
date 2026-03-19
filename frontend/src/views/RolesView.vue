@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { createRole, deleteRole, getRoles, updateRole, type Role } from '@/api/rbac'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
@@ -8,6 +9,8 @@ import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
@@ -19,6 +22,7 @@ const roles = ref<Role[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const totalRecords = ref(0)
+const search = ref('')
 const lazyParams = ref({ first: 0, rows: 20 })
 
 const dialogVisible = ref(false)
@@ -41,7 +45,11 @@ async function loadRoles() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getRoles({ page, size: lazyParams.value.rows })
+    const res = await getRoles({
+      page,
+      size: lazyParams.value.rows,
+      search: search.value.trim() || undefined,
+    })
     roles.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -131,9 +139,20 @@ async function performDelete(role: Role) {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
   void loadRoles()
 }
+
+const debouncedLoadRoles = useDebounceFn(() => loadRoles(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadRoles()
+})
 
 onMounted(() => {
   void loadRoles()
@@ -151,6 +170,11 @@ onMounted(() => {
       </div>
       <Button label="Add Role" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
+
+    <IconField class="search-field">
+      <InputIcon class="pi pi-search" />
+      <InputText v-model="search" placeholder="Search by code, name, or description..." />
+    </IconField>
 
     <DataTable
       :value="roles"
@@ -257,6 +281,11 @@ onMounted(() => {
 
 .page-subtitle {
   color: var(--p-text-muted-color);
+}
+
+.search-field :deep(.p-inputtext) {
+  width: 100%;
+  max-width: 400px;
 }
 
 .row-actions {
