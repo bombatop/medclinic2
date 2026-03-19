@@ -35,7 +35,12 @@ const totalRecords = ref(0)
 const loading = ref(true)
 const loadingRoles = ref(false)
 const search = ref('')
-const lazyParams = ref({ first: 0, rows: 10 })
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'lastName' as string | null,
+  sortOrder: 1 as number,
+})
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -71,9 +76,16 @@ async function loadUsers() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
     const res = await getUsers({
       page,
       size: lazyParams.value.rows,
+      sort,
       search: search.value.trim() || undefined,
     })
     users.value = res.content
@@ -114,6 +126,16 @@ function onPage(event: { first: number; rows: number }) {
     ...lazyParams.value,
     first: event.first,
     rows: event.rows,
+  }
+  void loadUsers()
+}
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
   }
   void loadUsers()
 }
@@ -320,16 +342,20 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
+      removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No users found.</div>
       </template>
 
-      <Column field="username" header="Username" />
+      <Column field="username" header="Username" sortable sortField="username" />
 
-      <Column header="Name">
+      <Column header="Name" sortable sortField="lastName">
         <template #body="{ data }">
           {{ data.firstName }} {{ data.lastName }}
         </template>
@@ -346,7 +372,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="Status" style="width: 8rem">
+      <Column header="Status" sortable sortField="active" style="width: 8rem">
         <template #body="{ data }">
           <Tag
             :value="data.active ? 'Active' : 'Inactive'"
@@ -355,7 +381,7 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column header="Created">
+      <Column header="Created" sortable sortField="createdAt">
         <template #body="{ data }">
           {{ formatDate(data.createdAt) }}
         </template>

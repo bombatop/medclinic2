@@ -23,7 +23,12 @@ const loading = ref(true)
 const saving = ref(false)
 const totalRecords = ref(0)
 const search = ref('')
-const lazyParams = ref({ first: 0, rows: 20 })
+const lazyParams = ref({
+  first: 0,
+  rows: 20,
+  sortField: 'code' as string | null,
+  sortOrder: 1 as number,
+})
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -45,9 +50,16 @@ async function loadRoles() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
     const res = await getRoles({
       page,
       size: lazyParams.value.rows,
+      sort,
       search: search.value.trim() || undefined,
     })
     roles.value = res.content
@@ -147,6 +159,16 @@ function onPage(event: { first: number; rows: number }) {
   void loadRoles()
 }
 
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
+  void loadRoles()
+}
+
 const debouncedLoadRoles = useDebounceFn(() => loadRoles(), 300)
 
 watch(search, () => {
@@ -185,21 +207,25 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[20, 50, 100]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
+      removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No roles found.</div>
       </template>
 
-      <Column field="code" header="Code" />
-      <Column field="name" header="Name" />
+      <Column field="code" header="Code" sortable sortField="code" />
+      <Column field="name" header="Name" sortable sortField="name" />
       <Column header="Description">
         <template #body="{ data }">
           {{ data.description || '-' }}
         </template>
       </Column>
-      <Column header="Status">
+      <Column header="Status" sortable sortField="active">
         <template #body="{ data }">
           <Tag :value="data.active ? 'Active' : 'Inactive'" :severity="data.active ? 'success' : 'danger'" />
         </template>

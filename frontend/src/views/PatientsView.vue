@@ -313,9 +313,9 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column field="phone" header="Phone" />
+      <Column field="phone" header="Phone" sortable sortField="phone" />
 
-      <Column field="email" header="Email">
+      <Column field="email" header="Email" sortable sortField="email">
         <template #body="{ data }">
           {{ data.email || '—' }}
         </template>

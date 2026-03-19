@@ -12,7 +12,12 @@ const toast = useToast()
 const rows = ref<RbacAuditLog[]>([])
 const loading = ref(true)
 const totalRecords = ref(0)
-const lazyParams = ref({ first: 0, rows: 20 })
+const lazyParams = ref({
+  first: 0,
+  rows: 20,
+  sortField: 'createdAt' as string | null,
+  sortOrder: -1 as number,
+})
 
 const filters = reactive({
   actorUsername: '',
@@ -28,8 +33,14 @@ async function loadAudit() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
     const res = await getRbacAuditLogs(
-      { page, size: lazyParams.value.rows },
+      { page, size: lazyParams.value.rows, sort },
       {
         actorUsername: filters.actorUsername.trim() || undefined,
         action: filters.action.trim() || undefined,
@@ -49,7 +60,21 @@ async function loadAudit() {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
+  void loadAudit()
+}
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
   void loadAudit()
 }
 
@@ -100,20 +125,24 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[20, 50, 100]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
+      removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No audit events found.</div>
       </template>
 
-      <Column field="createdAt" header="When">
+      <Column field="createdAt" header="When" sortable sortField="createdAt">
         <template #body="{ data }">
           {{ formatDate(data.createdAt) }}
         </template>
       </Column>
-      <Column field="actorUsername" header="Actor" />
-      <Column field="action" header="Action" />
+      <Column field="actorUsername" header="Actor" sortable sortField="actorUsername" />
+      <Column field="action" header="Action" sortable sortField="action" />
       <Column field="targetType" header="Target Type" />
       <Column field="targetRef" header="Target Ref" />
       <Column field="details" header="Details" />
