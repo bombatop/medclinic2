@@ -26,8 +26,10 @@ public class UserController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('PERM_users.manage')")
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request));
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserRequest request,
+                                                   Authentication authentication,
+                                                   @RequestHeader(value = "X-User-Id", required = false) Long actorUserId) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(userService.createUser(request, authentication.getName(), actorUserId));
     }
 
     @GetMapping
@@ -46,21 +48,27 @@ public class UserController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('PERM_users.manage')")
     public ResponseEntity<UserResponse> updateUser(@PathVariable Long id,
-                                                   @Valid @RequestBody UpdateUserRequest request) {
-        return ResponseEntity.ok(userService.updateUser(id, request));
+                                                   @Valid @RequestBody UpdateUserRequest request,
+                                                   Authentication authentication,
+                                                   @RequestHeader(value = "X-User-Id", required = false) Long actorUserId) {
+        return ResponseEntity.ok(userService.updateUser(id, request, authentication.getName(), actorUserId));
     }
 
     @PatchMapping("/{id}/deactivate")
     @PreAuthorize("hasAuthority('PERM_users.manage')")
-    public ResponseEntity<Void> deactivateUser(@PathVariable Long id) {
-        userService.deactivateUser(id);
+    public ResponseEntity<Void> deactivateUser(@PathVariable Long id,
+                                               Authentication authentication,
+                                               @RequestHeader(value = "X-User-Id", required = false) Long actorUserId) {
+        userService.deactivateUser(id, authentication.getName(), actorUserId);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/activate")
     @PreAuthorize("hasAuthority('PERM_users.manage')")
-    public ResponseEntity<Void> activateUser(@PathVariable Long id) {
-        userService.activateUser(id);
+    public ResponseEntity<Void> activateUser(@PathVariable Long id,
+                                             Authentication authentication,
+                                             @RequestHeader(value = "X-User-Id", required = false) Long actorUserId) {
+        userService.activateUser(id, authentication.getName(), actorUserId);
         return ResponseEntity.noContent().build();
     }
 
