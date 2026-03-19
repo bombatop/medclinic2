@@ -1,6 +1,7 @@
 package com.medclinic.auth.service;
 
 import com.medclinic.auth.exception.ResourceNotFoundException;
+import com.medclinic.auth.model.PermissionEntity;
 import com.medclinic.auth.model.Role;
 import com.medclinic.auth.model.RolePermission;
 import com.medclinic.auth.model.User;
@@ -25,7 +26,9 @@ public class RbacService {
     private final RolePermissionRepository rolePermissionRepository;
 
     public Set<Role> resolveRoles(User user) {
-        Set<Role> roles = normalizeRoles(user.getEffectiveRoles());
+        Set<Role> roles = normalizeRoles(user.getEffectiveRoles()).stream()
+                .filter(Role::isActive)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
         if (roles.isEmpty()) {
             roleRepository.findByCode(ROLE_RECEPTIONIST).ifPresent(roles::add);
         }
@@ -84,6 +87,7 @@ public class RbacService {
         return rolePermissionRepository.findByRoleIn(roles).stream()
                 .map(RolePermission::getPermission)
                 .filter(Objects::nonNull)
+                .filter(PermissionEntity::isActive)
                 .map(permission -> permission.getCode())
                 .sorted()
                 .collect(Collectors.toCollection(LinkedHashSet::new));
