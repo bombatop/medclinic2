@@ -42,6 +42,11 @@ const createdAtLabel = computed(() => {
   }).format(new Date(user.value.createdAt))
 })
 
+const displayRoles = computed(() => {
+  if (!user.value) return []
+  return Array.isArray(user.value.roles) ? user.value.roles : []
+})
+
 const profileDirty = computed(() => {
   if (!user.value) return false
   return (
@@ -263,9 +268,9 @@ onMounted(() => {
               <InputText :model-value="user.username" readonly />
             </div>
             <div class="field">
-              <label>Role</label>
+              <label>Roles</label>
               <div class="tag-row">
-                <Tag :value="user.role" />
+                <Tag v-for="roleValue in displayRoles" :key="roleValue" :value="roleValue" />
               </div>
             </div>
             <div class="field">
@@ -439,6 +444,8 @@ onMounted(() => {
   min-height: 2.625rem;
   display: flex;
   align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
 }
 
 .profile-actions {

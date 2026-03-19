@@ -40,7 +40,25 @@ const router = createRouter({
       path: '/admin/users',
       name: 'users',
       component: () => import('../views/UsersView.vue'),
-      meta: { adminOnly: true },
+      meta: { adminOnly: true, permission: 'users.read_all' },
+    },
+    {
+      path: '/admin/roles',
+      name: 'roles',
+      component: () => import('../views/RolesView.vue'),
+      meta: { adminOnly: true, permission: 'users.manage_roles' },
+    },
+    {
+      path: '/admin/role-permissions',
+      name: 'role-permissions',
+      component: () => import('../views/RolePermissionsView.vue'),
+      meta: { adminOnly: true, permission: 'users.manage_roles' },
+    },
+    {
+      path: '/admin/rbac-audit',
+      name: 'rbac-audit',
+      component: () => import('../views/RbacAuditView.vue'),
+      meta: { adminOnly: true, permission: 'users.manage_roles' },
     },
   ],
 })
@@ -49,6 +67,7 @@ router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore()
   const isPublic = to.meta.public === true
   const isAdminOnly = to.meta.adminOnly === true
+  const requiredPermission = typeof to.meta.permission === 'string' ? to.meta.permission : null
 
   if (isPublic && authStore.isAuthenticated) {
     next({ name: 'home' })
@@ -58,7 +77,11 @@ router.beforeEach((to, _from, next) => {
     next({ name: 'login', query: { redirect: to.fullPath } })
     return
   }
-  if (isAdminOnly && !authStore.isAdmin) {
+  if (isAdminOnly && !authStore.canAccessAdmin) {
+    next({ name: 'home' })
+    return
+  }
+  if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
     next({ name: 'home' })
     return
   }

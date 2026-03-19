@@ -4,9 +4,14 @@ import com.medclinic.auth.dto.ChangePasswordRequest;
 import com.medclinic.auth.dto.CreateUserRequest;
 import com.medclinic.auth.dto.UpdateUserRequest;
 import com.medclinic.auth.dto.UserResponse;
+import com.medclinic.auth.dto.UserRolesResponse;
+import com.medclinic.auth.dto.UpdateUserRolesRequest;
 import com.medclinic.auth.exception.ConflictException;
 import com.medclinic.auth.exception.ResourceNotFoundException;
+import com.medclinic.auth.model.Role;
+import com.medclinic.auth.model.RoleAssignmentAudit;
 import com.medclinic.auth.model.User;
+import com.medclinic.auth.repository.RoleAssignmentAuditRepository;
 import com.medclinic.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,17 +21,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RoleAssignmentAuditRepository roleAssignmentAuditRepository;
+    private final RbacService rbacService;
+    private final RbacAdminService rbacAdminService;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(CreateUserRequest request, String actorUsername, Long actorUserId) {
         if (userRepository.existsByUsername(request.username())) {
             throw new ConflictException("Username already taken");
         }
@@ -34,6 +44,7 @@ public class UserService {
             throw new ConflictException("Email already taken");
         }
 
+        Set<Role> roles = resolveRequestedRoles(request);
         User user = User.builder()
                 .username(request.username())
                 .password(passwordEncoder.encode(request.password()))
@@ -41,10 +52,13 @@ public class UserService {
                 .lastName(request.lastName())
                 .email(request.email())
                 .phone(request.phone())
-                .role(request.role())
+                .roles(new LinkedHashSet<>(roles))
                 .build();
 
-        return UserResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_CREATED", "USER",
+                String.valueOf(saved.getId()), "username=" + saved.getUsername() + ";roles=" + rbacService.joinRoles(roles));
+        return UserResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -67,26 +81,33 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return UserResponse.from(userRepository.save(applyProfileUpdate(user, request)));
+        User updated = userRepository.save(applyProfileUpdate(user, request));
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_UPDATED", "USER",
+                String.valueOf(updated.getId()), "profile updated");
+        return UserResponse.from(updated);
     }
 
     @Transactional
-    public void deactivateUser(Long id) {
+    public void deactivateUser(Long id, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setActive(false);
         userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_DEACTIVATED", "USER",
+                String.valueOf(user.getId()), "");
     }
 
     @Transactional
-    public void activateUser(Long id) {
+    public void activateUser(Long id, String actorUsername, Long actorUserId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         user.setActive(true);
         userRepository.save(user);
+        rbacAdminService.logAudit(actorUsername, actorUserId, "USER_ACTIVATED", "USER",
+                String.valueOf(user.getId()), "");
     }
 
     @Transactional(readOnly = true)
@@ -133,5 +154,68 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+    }
+
+    @Transactional(readOnly = true)
+    public UserRolesResponse getUserRoles(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Set<Role> roles = rbacService.resolveRoles(user);
+        return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(roles));
+    }
+
+    @Transactional
+    public UserRolesResponse updateUserRoles(Long userId,
+                                             UpdateUserRolesRequest request,
+                                             String actorUsername,
+                                             Long actorUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Set<Role> beforeRoles = rbacService.resolveRoles(user);
+        Set<Role> afterRoles = rbacService.resolveRoleEntitiesByCodes(request.roles());
+
+        Long actorId = resolveActorUserId(actorUsername, actorUserId);
+        if (actorId != null && actorId.equals(user.getId()) && !afterRoles.isEmpty()) {
+            Set<String> afterPermissions = rbacService.resolvePermissionCodes(afterRoles);
+            if (!afterPermissions.contains("users.manage_roles")) {
+                throw new ConflictException("Cannot remove your own admin privileges");
+            }
+        }
+
+        user.setRoles(new LinkedHashSet<>(afterRoles));
+        userRepository.save(user);
+
+        RoleAssignmentAudit audit = RoleAssignmentAudit.builder()
+                .actorUserId(actorId)
+                .actorUsername(actorUsername)
+                .targetUserId(user.getId())
+                .rolesBefore(rbacService.joinRoles(beforeRoles))
+                .rolesAfter(rbacService.joinRoles(afterRoles))
+                .build();
+        roleAssignmentAuditRepository.save(audit);
+        rbacAdminService.logAudit(
+                actorUsername,
+                actorId,
+                "USER_ROLES_UPDATED",
+                "USER",
+                String.valueOf(user.getId()),
+                "before=" + rbacService.joinRoles(beforeRoles) + ";after=" + rbacService.joinRoles(afterRoles)
+        );
+
+        return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(afterRoles));
+    }
+
+    private Set<Role> resolveRequestedRoles(CreateUserRequest request) {
+        return rbacService.resolveRoleEntitiesByCodes(request.roles());
+    }
+
+    private Long resolveActorUserId(String actorUsername, Long actorUserId) {
+        if (actorUserId != null) {
+            return actorUserId;
+        }
+        return userRepository.findByUsername(actorUsername)
+                .map(User::getId)
+                .orElse(0L);
     }
 }

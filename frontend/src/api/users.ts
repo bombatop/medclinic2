@@ -7,7 +7,7 @@ export interface User {
   lastName: string
   email: string
   phone: string | null
-  role: 'ADMIN' | 'EMPLOYEE'
+  roles: string[]
   active: boolean
   createdAt: string
 }
@@ -19,7 +19,7 @@ export interface CreateUserRequest {
   lastName: string
   email: string
   phone?: string
-  role: 'ADMIN' | 'EMPLOYEE'
+  roles: string[]
 }
 
 export interface UpdateUserRequest {
@@ -27,6 +27,12 @@ export interface UpdateUserRequest {
   lastName?: string
   email?: string
   phone?: string
+}
+
+export interface UserRolesResponse {
+  userId: number
+  username: string
+  roles: string[]
 }
 
 export interface PageResponse<T> {
@@ -64,4 +70,12 @@ export function activateUser(id: number): Promise<void> {
 
 export function deactivateUser(id: number): Promise<void> {
   return http.patch(`/auth/auth/users/${id}/deactivate`).then(() => undefined)
+}
+
+export function getUserRoles(id: number): Promise<UserRolesResponse> {
+  return http.get<UserRolesResponse>(`/auth/auth/users/${id}/roles`).then((res) => res.data)
+}
+
+export function updateUserRoles(id: number, roles: string[]): Promise<UserRolesResponse> {
+  return http.put<UserRolesResponse>(`/auth/auth/users/${id}/roles`, { roles }).then((res) => res.data)
 }

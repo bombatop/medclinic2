@@ -37,7 +37,7 @@ async function onSubmit() {
       username: form.username.trim(),
       password: form.password,
     })
-    authStore.setTokens(res.accessToken, res.refreshToken, res.role)
+    authStore.setTokens(res.accessToken, res.roles, res.permissions)
     toast.add({
       severity: 'success',
       summary: 'Welcome',

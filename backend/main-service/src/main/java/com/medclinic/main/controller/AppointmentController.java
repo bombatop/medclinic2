@@ -4,7 +4,10 @@ import com.medclinic.main.dto.AppointmentResponse;
 import com.medclinic.main.dto.CreateAppointmentRequest;
 import com.medclinic.main.dto.UpdateAppointmentRequest;
 import com.medclinic.main.dto.PageResponse;
+import com.medclinic.main.exception.AccessDeniedException;
 import com.medclinic.main.model.AppointmentStatus;
+import com.medclinic.main.security.Permissions;
+import com.medclinic.main.security.RequestContext;
 import com.medclinic.main.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +27,19 @@ import java.util.List;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final RequestContext requestContext;
 
     @PostMapping
     public ResponseEntity<AppointmentResponse> createAppointment(
             @Valid @RequestBody CreateAppointmentRequest request) {
+        requireCanCreateAppointment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(appointmentService.createAppointment(request));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<AppointmentResponse> updateAppointment(@PathVariable Long id,
                                                                  @Valid @RequestBody UpdateAppointmentRequest request) {
+        requireCanUpdateAppointment(id, request);
         return ResponseEntity.ok(appointmentService.updateAppointment(id, request));
     }
 
@@ -67,6 +73,62 @@ public class AppointmentController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<AppointmentResponse> updateStatus(@PathVariable Long id,
                                                             @RequestParam AppointmentStatus status) {
+        requireCanUpdateStatus(id, status);
         return ResponseEntity.ok(appointmentService.updateStatus(id, status));
+    }
+
+    private void requireCanCreateAppointment(CreateAppointmentRequest request) {
+        if (requestContext.hasPermission(Permissions.APPOINTMENT_CREATE_ANY)) {
+            return;
+        }
+        if (!requestContext.hasPermission(Permissions.APPOINTMENT_CREATE_SELF)
+                || !requestContext.hasPermission(Permissions.APPOINTMENT_PARTICIPATE)) {
+            throw new AccessDeniedException("No permission to create appointments");
+        }
+        Long ownerUserId = appointmentService.getEmployeeAuthUserId(request.employeeId());
+        if (!ownerUserId.equals(requestContext.getUserId())) {
+            throw new AccessDeniedException("You can create appointments only for your own doctor profile");
+        }
+    }
+
+    private void requireCanUpdateAppointment(Long id, UpdateAppointmentRequest request) {
+        if (requestContext.hasPermission(Permissions.APPOINTMENT_UPDATE_ANY)) {
+            return;
+        }
+        if (!requestContext.hasPermission(Permissions.APPOINTMENT_UPDATE_SELF)
+                || !requestContext.hasPermission(Permissions.APPOINTMENT_PARTICIPATE)) {
+            throw new AccessDeniedException("No permission to update appointments");
+        }
+        Long currentOwnerUserId = appointmentService.getAppointmentEmployeeAuthUserId(id);
+        Long targetOwnerUserId = appointmentService.getEmployeeAuthUserId(request.employeeId());
+        Long currentUserId = requestContext.getUserId();
+        if (!currentOwnerUserId.equals(currentUserId) || !targetOwnerUserId.equals(currentUserId)) {
+            throw new AccessDeniedException("You can update only your own appointments");
+        }
+    }
+
+    private void requireCanUpdateStatus(Long id, AppointmentStatus status) {
+        if (status == AppointmentStatus.CANCELLED) {
+            if (requestContext.hasPermission(Permissions.APPOINTMENT_CANCEL_ANY)) {
+                return;
+            }
+            if (!requestContext.hasPermission(Permissions.APPOINTMENT_CANCEL_SELF)
+                    || !requestContext.hasPermission(Permissions.APPOINTMENT_PARTICIPATE)) {
+                throw new AccessDeniedException("No permission to cancel appointments");
+            }
+        } else {
+            if (requestContext.hasPermission(Permissions.APPOINTMENT_STATUS_UPDATE_ANY)) {
+                return;
+            }
+            if (!requestContext.hasPermission(Permissions.APPOINTMENT_STATUS_UPDATE_SELF)
+                    || !requestContext.hasPermission(Permissions.APPOINTMENT_PARTICIPATE)) {
+                throw new AccessDeniedException("No permission to update appointment status");
+            }
+        }
+
+        Long ownerUserId = appointmentService.getAppointmentEmployeeAuthUserId(id);
+        if (!ownerUserId.equals(requestContext.getUserId())) {
+            throw new AccessDeniedException("You can change status only for your own appointments");
+        }
     }
 }

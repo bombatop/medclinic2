@@ -1,6 +1,5 @@
 package com.medclinic.auth.security;
 
-import com.medclinic.auth.model.Role;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -18,14 +18,18 @@ public class JwtUtils {
 
     private final JwtProperties jwtProperties;
 
-    public String generateAccessToken(Long userId, String username, Role role) {
+    public String generateAccessToken(Long userId,
+                                      String username,
+                                      List<String> roles,
+                                      List<String> permissions) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtProperties.getAccessTokenExpiration());
 
         return Jwts.builder()
                 .subject(username)
                 .claim("userId", userId)
-                .claim("role", role.name())
+                .claim("roles", roles)
+                .claim("permissions", permissions)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(getSigningKey())
@@ -80,8 +84,22 @@ public class JwtUtils {
         }
     }
 
-    public Role getRoleFromToken(String token) {
-        return Role.valueOf(parseToken(token).get("role", String.class));
+    @SuppressWarnings("unchecked")
+    public List<String> getRolesFromToken(String token) {
+        Object claim = parseToken(token).get("roles");
+        if (claim instanceof List<?> values) {
+            return values.stream().map(String::valueOf).toList();
+        }
+        return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> getPermissionsFromToken(String token) {
+        Object claim = parseToken(token).get("permissions");
+        if (claim instanceof List<?> values) {
+            return values.stream().map(String::valueOf).toList();
+        }
+        return List.of();
     }
 
     private SecretKey getSigningKey() {

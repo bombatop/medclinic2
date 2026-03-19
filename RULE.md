@@ -17,9 +17,9 @@ This project uses Cursor heavily. When working here (with any account), follow t
   - Tables: use `DataTable` with local search/filtering and pagination (no backend paging yet).
 
 - **Respect roles and admin boundaries**  
-  - Roles are `ADMIN` and `EMPLOYEE`.  
-  - Frontend gets the role from login and exposes `authStore.isAdmin`.  
-  - Admin‑only features must be guarded both in the router (`meta.adminOnly`) and in the UI (hide buttons, links).
+  - Roles are DB-backed (baseline: `ADMIN`, `DOCTOR`, `RECEPTIONIST`; custom roles via RBAC admin). Multi-role assignment supported.  
+  - Frontend uses `authStore.roles`, `authStore.permissions`, `authStore.hasPermission(code)`, `authStore.canAccessAdmin`, `authStore.canManageRbac`.  
+  - Admin and RBAC features must be guarded by permission checks in router (`meta.adminOnly`, `meta.permission`) and UI.
 
 - **Do NOT encode business rules here (yet)**  
   - Keep this file focused on tooling, architecture, and collaboration.  

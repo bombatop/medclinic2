@@ -31,6 +31,7 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
     private static final List<String> PUBLIC_PATHS = List.of(
             "/api/auth/auth/login",
             "/api/auth/auth/refresh",
+            "/api/auth/auth/logout",
             "/health",
             "/actuator"
     );
@@ -54,12 +55,25 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
 
         try {
             Claims claims = parseToken(token);
+            if ("refresh".equals(claims.get("type", String.class))) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
 
-            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
-                    .header("X-User-Id", claims.get("userId", Long.class).toString())
+            Long userId = claims.get("userId", Long.class);
+            if (userId == null) {
+                exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+                return exchange.getResponse().setComplete();
+            }
+            List<String> roles = getStringListClaim(claims, "roles");
+            List<String> permissions = getStringListClaim(claims, "permissions");
+
+            ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate()
+                    .header("X-User-Id", userId.toString())
                     .header("X-Username", claims.getSubject())
-                    .header("X-User-Role", claims.get("role", String.class))
-                    .build();
+                    .header("X-User-Roles", String.join(",", roles))
+                    .header("X-User-Permissions", String.join(",", permissions));
+            ServerHttpRequest mutatedRequest = requestBuilder.build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
 
@@ -86,5 +100,13 @@ public class JwtAuthGatewayFilter implements GlobalFilter, Ordered {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    private List<String> getStringListClaim(Claims claims, String claimName) {
+        Object claim = claims.get(claimName);
+        if (claim instanceof List<?> values) {
+            return values.stream().map(String::valueOf).toList();
+        }
+        return List.of();
     }
 }

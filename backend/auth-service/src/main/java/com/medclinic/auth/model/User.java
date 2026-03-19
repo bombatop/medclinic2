@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -37,9 +39,14 @@ public class User {
 
     private String phone;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Role role;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    @Builder.Default
+    private Set<Role> roles = new LinkedHashSet<>();
 
     @Column(nullable = false)
     private boolean active;
@@ -58,5 +65,12 @@ public class User {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+    }
+
+    public Set<Role> getEffectiveRoles() {
+        if (roles != null && !roles.isEmpty()) {
+            return new LinkedHashSet<>(roles);
+        }
+        return new LinkedHashSet<>();
     }
 }
