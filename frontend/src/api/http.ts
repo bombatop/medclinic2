@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
   timeout: 10000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -13,7 +14,7 @@ const http = axios.create({
 let refreshPromise: Promise<boolean> | null = null
 
 function isAuthRequest(url: string) {
-  return url?.includes('/auth/auth/login') || url?.includes('/auth/auth/refresh')
+  return url?.includes('/auth/auth/login') || url?.includes('/auth/auth/refresh') || url?.includes('/auth/auth/logout')
 }
 
 http.interceptors.request.use((config) => {
@@ -36,33 +37,21 @@ http.interceptors.response.use(
     if (isAuthRequest(originalRequest?.url)) {
       useAuthStore().clearTokens()
       if (!originalRequest?.url?.includes('/auth/auth/login')) {
-        import('@/router').then(({ default: router }) =>
-          router.push({ name: 'login' }),
-        )
+        import('@/router').then(({ default: router }) => router.push({ name: 'login' }))
       }
       return Promise.reject(error)
     }
 
-    const refreshToken = localStorage.getItem('refreshToken')
-    if (!refreshToken) {
-      useAuthStore().clearTokens()
-      import('@/router').then(({ default: router }) =>
-        router.push({ name: 'login' }),
-      )
-      return Promise.reject(error)
-    }
-
     if (!refreshPromise) {
-      refreshPromise = refresh(refreshToken)
+      refreshPromise = refresh()
         .then((res) => {
-          useAuthStore().setTokens(res.accessToken, res.refreshToken, res.roles, res.permissions)
+          useAuthStore().setTokens(res.accessToken, res.roles, res.permissions)
           return true
         })
-        .catch(() => {
-          useAuthStore().clearTokens()
-          import('@/router').then(({ default: router }) =>
-            router.push({ name: 'login' }),
-          )
+        .catch(async () => {
+          await useAuthStore().clearTokens()
+          const { default: router } = await import('@/router')
+          router.push({ name: 'login' })
           return false
         })
         .finally(() => {

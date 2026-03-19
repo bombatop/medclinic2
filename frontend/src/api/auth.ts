@@ -10,7 +10,7 @@ export interface LoginRequest {
 
 export interface AuthResponse {
   accessToken: string
-  refreshToken: string
+  refreshToken: string | null
   roles: string[]
   permissions: string[]
   username: string
@@ -46,14 +46,20 @@ export interface ApiError {
 }
 
 export function login(data: LoginRequest): Promise<AuthResponse> {
-  return http.post<AuthResponse>('/auth/auth/login', data).then((res) => res.data)
+  return http.post<AuthResponse>('/auth/auth/login', data, { withCredentials: true }).then((res) => res.data)
 }
 
-/** Uses raw axios to avoid interceptor recursion when called from 401 handler */
-export function refresh(refreshToken: string): Promise<AuthResponse> {
+/** Uses raw axios to avoid interceptor recursion when called from 401 handler. Refresh token from httpOnly cookie. */
+export function refresh(): Promise<AuthResponse> {
   return axios
-    .post<AuthResponse>(`${baseURL}/auth/auth/refresh`, { refreshToken })
+    .post<AuthResponse>(`${baseURL}/auth/auth/refresh`, {}, { withCredentials: true })
     .then((res) => res.data)
+}
+
+export function logout(): Promise<void> {
+  return axios
+    .post(`${baseURL}/auth/auth/logout`, {}, { withCredentials: true })
+    .then(() => undefined)
 }
 
 export function getCurrentUser(): Promise<CurrentUser> {
