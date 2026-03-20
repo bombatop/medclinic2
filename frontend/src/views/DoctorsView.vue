@@ -4,14 +4,16 @@ import { useDebounceFn } from '@/composables/useDebounceFn'
 import { useAuthStore } from '@/stores/auth'
 import {
   activateDoctor,
-  createDoctorWithAccount,
+  createEmployeeProfile,
   deactivateDoctor,
   getAuthUser,
   getDoctorAppointments,
   getDoctors,
+  getLinkedAuthUserIds,
   updateDoctor,
   type Doctor,
 } from '@/api/doctors'
+import { getUsers, type User } from '@/api/users'
 import type { Appointment } from '@/api/patients'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
@@ -24,7 +26,7 @@ import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
-import Password from 'primevue/password'
+import Select from 'primevue/select'
 import Tag from 'primevue/tag'
 
 const toast = useToast()
@@ -53,11 +55,12 @@ const editingDoctorId = ref<number | null>(null)
 const editLoginInfo = ref<{ username: string; email: string } | null>(null)
 const loadingLoginInfo = ref(false)
 
+const linkedAuthUserIds = ref<Set<number>>(new Set())
+const linkUserOptions = ref<Array<{ label: string; value: number; user: User }>>([])
+const loadingLinkUsers = ref(false)
+const selectedLinkUserId = ref<number | null>(null)
+
 const form = reactive({
-  username: '',
-  password: '',
-  email: '',
-  phone: '',
   firstName: '',
   lastName: '',
   specialization: '',
@@ -66,6 +69,44 @@ const form = reactive({
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
+}
+
+async function refreshLinkedAuthUserIds() {
+  try {
+    const ids = await getLinkedAuthUserIds()
+    linkedAuthUserIds.value = new Set(ids)
+  } catch {
+    linkedAuthUserIds.value = new Set()
+  }
+}
+
+async function loadLinkUserOptions(searchQuery: string) {
+  loadingLinkUsers.value = true
+  try {
+    const res = await getUsers({
+      page: 0,
+      size: 50,
+      search: searchQuery.trim() || undefined,
+    })
+    const linked = linkedAuthUserIds.value
+    linkUserOptions.value = res.content
+      .filter((u) => u.roles.includes('DOCTOR') && !linked.has(u.id))
+      .map((u) => ({
+        label: `${u.username} — ${u.firstName} ${u.lastName}`,
+        value: u.id,
+        user: u,
+      }))
+  } catch {
+    linkUserOptions.value = []
+  } finally {
+    loadingLinkUsers.value = false
+  }
+}
+
+const debouncedLoadLinkUsers = useDebounceFn((q: string) => void loadLinkUserOptions(q), 300)
+
+function onLinkUserFilter(event: { value: string }) {
+  debouncedLoadLinkUsers(event.value ?? '')
 }
 
 async function loadDoctors() {
@@ -90,7 +131,7 @@ async function loadDoctors() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load doctors.'),
+      detail: getErrorMessage(err, 'Unable to load doctor profiles.'),
     })
   } finally {
     loading.value = false
@@ -123,16 +164,24 @@ watch(search, () => {
   debouncedLoadDoctors()
 })
 
-function openCreateDialog() {
+watch(selectedLinkUserId, (id) => {
+  if (id == null) return
+  const opt = linkUserOptions.value.find((o) => o.value === id)
+  if (opt) {
+    form.firstName = opt.user.firstName
+    form.lastName = opt.user.lastName
+  }
+})
+
+async function openCreateDialog() {
   dialogMode.value = 'create'
   editingDoctorId.value = null
-  form.username = ''
-  form.password = ''
-  form.email = ''
-  form.phone = ''
+  selectedLinkUserId.value = null
   form.firstName = ''
   form.lastName = ''
   form.specialization = ''
+  await refreshLinkedAuthUserIds()
+  await loadLinkUserOptions('')
   dialogVisible.value = true
 }
 
@@ -166,16 +215,12 @@ async function saveDoctor() {
     return
   }
   if (dialogMode.value === 'create') {
-    if (isBlankInput(form.username)) {
-      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Username is required.' })
-      return
-    }
-    if (isBlankInput(form.password) || form.password.length < 6) {
-      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Password must be at least 6 characters.' })
-      return
-    }
-    if (isBlankInput(form.email)) {
-      toast.add({ severity: 'warn', summary: 'Validation', detail: 'Email is required.' })
+    if (selectedLinkUserId.value == null) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validation',
+        detail: 'Select a user account with the Doctor role (create the user under Admin → Users first).',
+      })
       return
     }
   }
@@ -183,21 +228,19 @@ async function saveDoctor() {
   saving.value = true
   try {
     if (dialogMode.value === 'create') {
-      const created = await createDoctorWithAccount({
-        username: form.username.trim(),
-        password: form.password,
+      const created = await createEmployeeProfile({
+        authUserId: selectedLinkUserId.value!,
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim() || undefined,
         specialization: form.specialization.trim() || undefined,
       })
       totalRecords.value += 1
       doctors.value = [created, ...doctors.value].slice(0, lazyParams.value.rows)
+      await refreshLinkedAuthUserIds()
       toast.add({
         severity: 'success',
-        summary: 'Doctor created',
-        detail: `Account and profile for ${created.firstName} ${created.lastName} created.`,
+        summary: 'Profile linked',
+        detail: `Clinic profile linked for ${created.firstName} ${created.lastName}.`,
       })
     } else {
       const updated = await updateDoctor(editingDoctorId.value!, {
@@ -209,7 +252,7 @@ async function saveDoctor() {
       if (idx >= 0) doctors.value[idx] = updated
       toast.add({
         severity: 'success',
-        summary: 'Doctor updated',
+        summary: 'Profile updated',
         detail: `${updated.firstName} ${updated.lastName} saved.`,
       })
     }
@@ -219,7 +262,7 @@ async function saveDoctor() {
     toast.add({
       severity: 'error',
       summary: 'Save failed',
-      detail: getErrorMessage(err, 'Unable to save doctor.'),
+      detail: getErrorMessage(err, 'Unable to save doctor profile.'),
     })
   } finally {
     saving.value = false
@@ -229,8 +272,8 @@ async function saveDoctor() {
 function confirmToggleActive(doctor: Doctor) {
   const action = doctor.active ? 'deactivate' : 'activate'
   confirm.require({
-    message: `${doctor.active ? 'Deactivate' : 'Activate'} ${doctor.firstName} ${doctor.lastName}?`,
-    header: `${doctor.active ? 'Deactivate' : 'Activate'} Doctor`,
+    message: `${doctor.active ? 'Deactivate' : 'Activate'} profile for ${doctor.firstName} ${doctor.lastName}?`,
+    header: `${doctor.active ? 'Deactivate' : 'Activate'} profile`,
     icon: doctor.active ? 'pi pi-ban' : 'pi pi-check-circle',
     rejectLabel: 'Cancel',
     acceptLabel: doctor.active ? 'Deactivate' : 'Activate',
@@ -250,14 +293,14 @@ async function performToggleActive(doctor: Doctor, action: 'activate' | 'deactiv
     if (idx >= 0) doctors.value[idx] = { ...doctors.value[idx]!, active: action === 'activate' }
     toast.add({
       severity: 'success',
-      summary: `Doctor ${action}d`,
+      summary: `Profile ${action}d`,
       detail: `${doctor.firstName} ${doctor.lastName} ${action}d.`,
     })
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
       summary: `${action} failed`,
-      detail: getErrorMessage(err, `Unable to ${action} doctor.`),
+      detail: getErrorMessage(err, `Unable to ${action} profile.`),
     })
   }
 }
@@ -305,15 +348,23 @@ onMounted(() => {
 
     <div class="page-header">
       <div>
-        <h1>Doctors</h1>
-        <p class="page-subtitle">Manage doctor profiles and schedules.</p>
+        <h1>Doctor profiles</h1>
+        <p class="page-subtitle">
+          Clinic employee records linked to user accounts. Create the user under Admin → Users with the Doctor role,
+          then link a profile here.
+        </p>
       </div>
-      <Button v-if="canManageDoctors" label="Add Doctor" icon="pi pi-plus" @click="openCreateDialog" />
+      <Button
+        v-if="canManageDoctors"
+        label="Link doctor profile"
+        icon="pi pi-link"
+        @click="openCreateDialog"
+      />
     </div>
 
     <IconField class="search-field">
       <InputIcon class="pi pi-search" />
-      <InputText v-model="search" placeholder="Search by name or specialization..." />
+      <InputText v-model="search" placeholder="Search profiles by name or specialization..." />
     </IconField>
 
     <DataTable
@@ -335,7 +386,7 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No doctors found.</div>
+        <div class="table-empty">No doctor profiles found.</div>
       </template>
 
       <Column expander style="width: 3rem" />
@@ -394,7 +445,7 @@ onMounted(() => {
 
       <template #expansion="{ data: doctor }">
         <div class="expansion-content">
-          <h3>Appointment Schedule</h3>
+          <h3>Appointment schedule</h3>
 
           <div v-if="loadingAppointments[doctor.id]" class="loading-state">
             <i class="pi pi-spin pi-spinner" />
@@ -429,14 +480,14 @@ onMounted(() => {
             </Column>
           </DataTable>
 
-          <p v-else class="no-data">No appointments found for this doctor.</p>
+          <p v-else class="no-data">No appointments for this profile.</p>
         </div>
       </template>
     </DataTable>
 
     <Dialog
       v-model:visible="dialogVisible"
-      :header="dialogMode === 'create' ? 'New Doctor' : 'Edit Doctor'"
+      :header="dialogMode === 'create' ? 'Link doctor profile' : 'Edit doctor profile'"
       modal
       :style="{ width: '480px' }"
     >
@@ -444,7 +495,7 @@ onMounted(() => {
         <template v-if="dialogMode === 'edit'">
           <div class="login-info">
             <div v-if="loadingLoginInfo" class="login-info-loading">
-              <i class="pi pi-spin pi-spinner" /> Loading account info...
+              <i class="pi pi-spin pi-spinner" /> Loading linked account...
             </div>
             <template v-else-if="editLoginInfo">
               <div class="login-info-row">
@@ -458,33 +509,28 @@ onMounted(() => {
             </template>
           </div>
         </template>
-        <template v-if="dialogMode === 'create'">
-          <p class="dialog-section">Account</p>
+        <template v-else>
           <div class="field">
-            <label for="dlg-username">Username *</label>
-            <InputText id="dlg-username" v-model="form.username" :disabled="saving" />
-          </div>
-          <div class="field">
-            <label for="dlg-password">Password *</label>
-            <Password
-              id="dlg-password"
-              v-model="form.password"
+            <label for="link-user">User account *</label>
+            <Select
+              id="link-user"
+              v-model="selectedLinkUserId"
+              :options="linkUserOptions"
+              option-label="label"
+              option-value="value"
+              placeholder="Doctor role, no profile yet — type to search"
+              filter
+              show-clear
+              :loading="loadingLinkUsers"
               :disabled="saving"
-              toggle-mask
-              :feedback="false"
-              input-class="w-full"
               class="w-full"
+              @filter="onLinkUserFilter"
             />
+            <p class="field-hint">
+              Only users with the Doctor role who do not already have a clinic profile are listed. Use Admin → Users to
+              create the account first.
+            </p>
           </div>
-          <div class="field">
-            <label for="dlg-email">Email *</label>
-            <InputText id="dlg-email" v-model="form.email" :disabled="saving" />
-          </div>
-          <div class="field">
-            <label for="dlg-phone">Phone</label>
-            <InputText id="dlg-phone" v-model="form.phone" :disabled="saving" />
-          </div>
-          <p class="dialog-section">Profile</p>
         </template>
         <div class="field">
           <label for="dlg-firstName">First name *</label>
@@ -514,7 +560,7 @@ onMounted(() => {
           @click="dialogVisible = false"
         />
         <Button
-          :label="dialogMode === 'create' ? 'Create' : 'Save'"
+          :label="dialogMode === 'create' ? 'Link profile' : 'Save'"
           icon="pi pi-check"
           :loading="saving"
           @click="saveDoctor"
@@ -540,6 +586,7 @@ onMounted(() => {
 
 .page-subtitle {
   color: var(--p-text-muted-color);
+  max-width: 42rem;
 }
 
 .search-field :deep(.p-inputtext) {
@@ -595,8 +642,17 @@ onMounted(() => {
   font-weight: 500;
 }
 
-.dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-password) {
+.field-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+
+.dialog-form .field :deep(.p-inputtext) {
+  width: 100%;
+}
+
+.dialog-form .field :deep(.p-select) {
   width: 100%;
 }
 
@@ -626,16 +682,6 @@ onMounted(() => {
 .login-info-label {
   color: var(--p-text-muted-color);
   min-width: 3rem;
-}
-
-.dialog-section {
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--p-text-muted-color);
-  border-bottom: 1px solid var(--p-surface-border);
-  padding-bottom: 0.375rem;
 }
 
 @media (max-width: 768px) {

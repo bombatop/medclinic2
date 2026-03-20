@@ -11,14 +11,11 @@ export interface Doctor {
   createdAt: string
 }
 
-export interface CreateDoctorForm {
-  username: string
-  password: string
+export interface CreateEmployeeProfileRequest {
+  authUserId: number
   firstName: string
   lastName: string
-  email: string
-  phone?: string
-  specialization?: string
+  specialization?: string | null
 }
 
 export interface UpdateDoctorRequest {
@@ -48,31 +45,23 @@ export interface PageParams {
   sort?: string
 }
 
-export async function createDoctorWithAccount(form: CreateDoctorForm): Promise<Doctor> {
-  const user = await http
-    .post<AuthUser>('/auth/auth/users', {
-      username: form.username,
-      password: form.password,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email,
-      phone: form.phone || null,
-      roles: ['DOCTOR'],
-    })
-    .then((res) => res.data)
-
-  return http
-    .post<Doctor>('/main/employees', {
-      authUserId: user.id,
-      firstName: form.firstName,
-      lastName: form.lastName,
-      specialization: form.specialization || null,
-    })
-    .then((res) => res.data)
-}
-
 export function getAuthUser(userId: number): Promise<AuthUser> {
   return http.get<AuthUser>(`/auth/auth/users/${userId}`).then((res) => res.data)
+}
+
+export function getLinkedAuthUserIds(): Promise<number[]> {
+  return http.get<number[]>('/main/employees/linked-auth-user-ids').then((res) => res.data)
+}
+
+export function createEmployeeProfile(data: CreateEmployeeProfileRequest): Promise<Doctor> {
+  return http
+    .post<Doctor>('/main/employees', {
+      authUserId: data.authUserId,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      specialization: data.specialization ?? null,
+    })
+    .then((res) => res.data)
 }
 
 export interface ListParams extends PageParams {

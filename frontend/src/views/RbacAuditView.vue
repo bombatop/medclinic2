@@ -52,7 +52,7 @@ async function loadAudit() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load RBAC audit logs.'),
+      detail: getErrorMessage(err, 'Unable to load audit logs.'),
     })
   } finally {
     loading.value = false
@@ -99,7 +99,7 @@ onMounted(() => {
   <div class="rbac-audit-page">
     <div class="page-header">
       <div>
-        <h1>RBAC Audit</h1>
+        <h1>Audit</h1>
         <p class="page-subtitle">Track role and permission changes.</p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, watch } from 'vue'
 import { useDebounceFn } from '@/composables/useDebounceFn'
+import { getLinkedAuthUserIds } from '@/api/doctors'
 import {
   activateUser,
   createUser,
@@ -23,6 +24,7 @@ import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
+import Message from 'primevue/message'
 import MultiSelect from 'primevue/multiselect'
 import Password from 'primevue/password'
 import Tag from 'primevue/tag'
@@ -35,6 +37,7 @@ const totalRecords = ref(0)
 const loading = ref(true)
 const loadingRoles = ref(false)
 const search = ref('')
+const linkedAuthUserIds = ref<Set<number>>(new Set())
 const lazyParams = ref({
   first: 0,
   rows: 10,
@@ -72,6 +75,17 @@ function getErrorMessage(err: unknown, fallback: string): string {
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
 }
 
+function doctorMissingClinicProfile(user: User): boolean {
+  return user.roles.includes('DOCTOR') && !linkedAuthUserIds.value.has(user.id)
+}
+
+function userHasNoRoles(user: User): boolean {
+  return user.roles.length === 0
+}
+
+const noRolesWarningDetail =
+  'This user has no roles. Consider assigning at least one role, or deactivate the account if they should not access the system.'
+
 async function loadUsers() {
   loading.value = true
   try {
@@ -82,12 +96,16 @@ async function loadUsers() {
       sortField != null && sortOrder !== 0
         ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
         : undefined
-    const res = await getUsers({
-      page,
-      size: lazyParams.value.rows,
-      sort,
-      search: search.value.trim() || undefined,
-    })
+    const [res, linkedIds] = await Promise.all([
+      getUsers({
+        page,
+        size: lazyParams.value.rows,
+        sort,
+        search: search.value.trim() || undefined,
+      }),
+      getLinkedAuthUserIds().catch(() => [] as number[]),
+    ])
+    linkedAuthUserIds.value = new Set(linkedIds)
     users.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -363,12 +381,32 @@ onMounted(() => {
 
       <Column field="email" header="Email" />
 
-      <Column header="Roles" style="width: 12rem">
+      <Column header="Roles" style="width: 14rem">
         <template #body="{ data }">
           <Tag
+            v-if="userHasNoRoles(data)"
+            value="No roles"
+            severity="warn"
+            v-tooltip.top="noRolesWarningDetail"
+          />
+          <Tag
+            v-else
             :value="data.roles.join(', ')"
             :severity="data.roles.includes('ADMIN') ? 'warn' : 'info'"
           />
+        </template>
+      </Column>
+
+      <Column header="Clinic" style="width: 10rem">
+        <template #body="{ data }">
+          <Tag
+            v-if="doctorMissingClinicProfile(data)"
+            value="No clinic profile"
+            severity="warn"
+            v-tooltip.top="'Doctor role but no linked clinic profile. Use Doctor profiles → Link doctor profile.'"
+          />
+          <span v-else-if="data.roles.includes('DOCTOR')" class="text-muted">Linked</span>
+          <span v-else class="text-muted">—</span>
         </template>
       </Column>
 
@@ -489,6 +527,14 @@ onMounted(() => {
           </div>
           <div class="field">
             <label for="edit-dlg-role">Roles *</label>
+            <Message
+              v-if="editForm.roles.length === 0"
+              severity="warn"
+              :closable="false"
+              class="roles-warning-message"
+            >
+              {{ noRolesWarningDetail }}
+            </Message>
             <MultiSelect
               id="edit-dlg-role"
               v-model="editForm.roles"
@@ -557,6 +603,11 @@ onMounted(() => {
   color: var(--p-text-muted-color);
 }
 
+.text-muted {
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
 .dialog-form {
   display: flex;
   flex-direction: column;
@@ -571,6 +622,14 @@ onMounted(() => {
 
 .dialog-form .field label {
   font-weight: 500;
+}
+
+.roles-warning-message {
+  margin-bottom: 0.5rem;
+}
+
+.roles-warning-message :deep(.p-message-text) {
+  font-size: 0.875rem;
 }
 
 .dialog-form .field :deep(.p-inputtext),

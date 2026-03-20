@@ -44,7 +44,8 @@ onMounted(() => {
 
 <template>
   <div>
-    <h1>Dashboard</h1>
+    <h1>Clinic dashboard</h1>
+    <p class="page-lead">Patients, appointments, and doctor profiles.</p>
     <div class="dashboard-grid">
       <router-link to="/patients" class="dashboard-card-link">
         <Card class="dashboard-card">
@@ -82,12 +83,12 @@ onMounted(() => {
           <template #title>
             <span class="card-title">
               <i class="pi pi-user" />
-              Doctors
+              Doctor profiles
             </span>
           </template>
           <template #content>
-            <p class="card-desc">View doctor schedules and specializations.</p>
-            <p v-if="doctorsCount !== null" class="card-count">{{ doctorsCount }} doctors</p>
+            <p class="card-desc">Clinic doctor profiles (link users with the DOCTOR role).</p>
+            <p v-if="doctorsCount !== null" class="card-count">{{ doctorsCount }} profiles</p>
           </template>
         </Card>
       </router-link>
@@ -96,6 +97,12 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.page-lead {
+  margin: 0.25rem 0 0;
+  color: var(--p-text-muted-color);
+  font-size: 0.95rem;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

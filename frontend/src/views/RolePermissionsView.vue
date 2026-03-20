@@ -89,7 +89,7 @@ async function savePermissions() {
   saving.value = true
   try {
     await updateRolePermissions(selectedRoleId.value, selectedPermissionCodes.value)
-    toast.add({ severity: 'success', summary: 'Saved', detail: 'Role permissions updated.' })
+    toast.add({ severity: 'success', summary: 'Saved', detail: 'Permissions updated.' })
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
@@ -114,7 +114,7 @@ watch(selectedRoleId, () => {
   <div class="role-permissions-page">
     <div class="page-header">
       <div>
-        <h1>Role Permissions</h1>
+        <h1>Permissions</h1>
         <p class="page-subtitle">Map business-action permissions to a role.</p>
       </div>
       <Button label="Save" icon="pi pi-check" :loading="saving" :disabled="loading" @click="savePermissions" />

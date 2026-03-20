@@ -46,6 +46,11 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
+    public List<Long> getLinkedAuthUserIds() {
+        return employeeRepository.findAllDistinctAuthUserIds();
+    }
+
+    @Transactional(readOnly = true)
     public Page<EmployeeResponse> getAllEmployees(String search, Pageable pageable) {
         Specification<Employee> spec = (root, query, cb) -> {
             if (search == null || search.isBlank()) {
