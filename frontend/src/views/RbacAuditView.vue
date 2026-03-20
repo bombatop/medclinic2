@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import {
+  lazySortStateFromDataTable,
   pageFromLazyFirst,
   springSortFromPrime,
 } from '@/composables/useLazyPrimeTable'
@@ -10,7 +11,7 @@ import { getApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime } from '@/utils/formatting'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
+import DataTable, { type DataTableSortEvent } from 'primevue/datatable'
 import InputText from 'primevue/inputtext'
 
 const toast = useToast()
@@ -64,12 +65,13 @@ function onPage(event: { first: number; rows: number }) {
   void loadAudit()
 }
 
-function onSort(event: { sortField?: string; sortOrder?: number }) {
+function onSort(event: DataTableSortEvent) {
+  const { sortField, sortOrder } = lazySortStateFromDataTable(event)
   lazyParams.value = {
     first: 0,
     rows: lazyParams.value.rows,
-    sortField: event.sortField ?? null,
-    sortOrder: event.sortOrder ?? 0,
+    sortField,
+    sortOrder,
   }
   void loadAudit()
 }
@@ -116,7 +118,7 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[20, 50, 100]"
-      :sortField="lazyParams.sortField"
+      :sortField="lazyParams.sortField ?? undefined"
       :sortOrder="lazyParams.sortOrder"
       stripedRows
       removableSort

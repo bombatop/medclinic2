@@ -10,6 +10,18 @@ globs: ["frontend/**/*.{vue,ts,js}"]
 
 After any change to frontend code, rebuild and restart: `docker compose build frontend && docker compose up -d frontend`. Never use `--with-dependencies` for frontend-only changes.
 
+The **running** `medclinic-frontend` container is **Nginx only** — there is no `node`/`npm` inside it. The Node toolchain exists only in the image **build** stage ([`frontend/Dockerfile`](frontend/Dockerfile): `FROM node:22-alpine AS build`).
+
+**Checks (typecheck / lint) without a local Node install** — use the build stage, from repo root:
+
+```bash
+docker build -f frontend/Dockerfile --target build -t medclinic-frontend-build ./frontend
+docker run --rm medclinic-frontend-build npm run type-check
+docker run --rm medclinic-frontend-build npm run lint
+```
+
+(`npm run build` / `docker compose build frontend` runs `build-only` in the Dockerfile, i.e. Vite production build; it does **not** run the full `package.json` `build` script that parallelizes `type-check` + `build-only`. Prefer an explicit `type-check` / `lint` run when validating TS and ESLint.)
+
 ### 2. Stack & structure
 
 - Vue 3 + TypeScript (script setup), PrimeVue (Aura), Pinia, Vue Router, Vite.

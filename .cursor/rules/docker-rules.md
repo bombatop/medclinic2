@@ -39,6 +39,7 @@ When adding new services, prefer to **extend the root compose** rather than intr
 
 - Multi-stage: node build → nginx serves `dist/`. Nginx: SPA `try_files`, proxy `/api/` to gateway.
 - Keep `npm run dev` working outside Docker; image serves static assets only.
+- The **runtime** frontend container has no Node — for `type-check` / `lint` via Docker, use the Dockerfile `--target build` and `docker run … npm run …` (see [`frontend-rules.md`](frontend-rules.md) §1).
 
 ### 5. New services and health checks
 

@@ -22,5 +22,17 @@ export default defineConfigWithVueTs(
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
+  {
+    name: 'appointments/dialogs-shared-reactive-form',
+    files: [
+      'src/views/appointments/components/AppointmentCreateDialog.vue',
+      'src/views/appointments/components/AppointmentEditDialog.vue',
+    ],
+    rules: {
+      // Parent passes the same reactive object useAppointmentMutations / useAppointmentForms uses.
+      'vue/no-mutating-props': 'off',
+    },
+  },
+
   skipFormatting,
 )

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import {
+  lazySortStateFromDataTable,
   pageFromLazyFirst,
   springSortFromPrime,
   useDebouncedSearchReload,
@@ -26,7 +27,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
-import DataTable from 'primevue/datatable'
+import DataTable, { type DataTableSortEvent } from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
@@ -145,12 +146,13 @@ function onPage(event: { first: number; rows: number }) {
   void loadUsers()
 }
 
-function onSort(event: { sortField?: string; sortOrder?: number }) {
+function onSort(event: DataTableSortEvent) {
+  const { sortField, sortOrder } = lazySortStateFromDataTable(event)
   lazyParams.value = {
     first: 0,
     rows: lazyParams.value.rows,
-    sortField: event.sortField ?? null,
-    sortOrder: event.sortOrder ?? 0,
+    sortField,
+    sortOrder,
   }
   void loadUsers()
 }
@@ -348,7 +350,7 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
-      :sortField="lazyParams.sortField"
+      :sortField="lazyParams.sortField ?? undefined"
       :sortOrder="lazyParams.sortOrder"
       stripedRows
       removableSort
