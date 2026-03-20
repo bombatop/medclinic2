@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { getAppointments } from '@/api/appointments'
 import { getDoctors } from '@/api/doctors'
 import { getPatients } from '@/api/patients'
+import { toLocalDayEndISO, toLocalDayStartISO } from '@/utils/formatting'
 import Card from 'primevue/card'
 
 const patientsCount = ref<number | null>(null)
@@ -10,25 +11,24 @@ const doctorsCount = ref<number | null>(null)
 const appointmentsCount = ref<number | null>(null)
 const todayCount = ref<number | null>(null)
 
+const TODAY_APPOINTMENTS_PAGE_SIZE = 500
+
 async function loadCounts() {
   try {
-    const [patientsRes, doctorsRes, appointmentsRes] = await Promise.all([
+    const today = new Date()
+    const from = toLocalDayStartISO(today)
+    const to = toLocalDayEndISO(today)
+
+    const [patientsRes, doctorsRes, appointmentsRes, todayRes] = await Promise.all([
       getPatients({ page: 0, size: 1 }),
       getDoctors({ page: 0, size: 1 }),
-      getAppointments({ page: 0, size: 1000 }),
+      getAppointments({ page: 0, size: 1 }),
+      getAppointments({ page: 0, size: TODAY_APPOINTMENTS_PAGE_SIZE }, { from, to }),
     ])
     patientsCount.value = patientsRes.totalElements
     doctorsCount.value = doctorsRes.totalElements
     appointmentsCount.value = appointmentsRes.totalElements
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    todayCount.value = appointmentsRes.content.filter((a) => {
-      const d = new Date(a.startTime)
-      return d >= today && d < tomorrow && a.status !== 'CANCELLED'
-    }).length
+    todayCount.value = todayRes.content.filter((a) => a.status !== 'CANCELLED').length
   } catch {
     patientsCount.value = 0
     doctorsCount.value = 0

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useDebounceFn } from '@/composables/useDebounceFn'
+import {
+  pageFromLazyFirst,
+  springSortFromPrime,
+  useDebouncedSearchReload,
+} from '@/composables/useLazyPrimeTable'
 import { useAuthStore } from '@/stores/auth'
 import {
   activateDoctor,
@@ -14,7 +19,10 @@ import {
   type Doctor,
 } from '@/api/doctors'
 import { getUsers, type User } from '@/api/users'
-import type { Appointment } from '@/api/patients'
+import type { Appointment } from '@/api/appointments'
+import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { appointmentStatusSeverity, formatDate, formatTime } from '@/utils/formatting'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -66,11 +74,6 @@ const form = reactive({
   specialization: '',
 })
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
-
 async function refreshLinkedAuthUserIds() {
   try {
     const ids = await getLinkedAuthUserIds()
@@ -112,13 +115,8 @@ function onLinkUserFilter(event: { value: string }) {
 async function loadDoctors() {
   loading.value = true
   try {
-    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const sortField = lazyParams.value.sortField
-    const sortOrder = lazyParams.value.sortOrder
-    const sort =
-      sortField != null && sortOrder !== 0
-        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
-        : undefined
+    const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
+    const sort = springSortFromPrime(lazyParams.value.sortField, lazyParams.value.sortOrder)
     const res = await getDoctors({
       page,
       size: lazyParams.value.rows,
@@ -131,7 +129,7 @@ async function loadDoctors() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load doctor profiles.'),
+      detail: getApiErrorMessage(err, 'Unable to load doctor profiles.'),
     })
   } finally {
     loading.value = false
@@ -157,12 +155,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadDoctors()
 }
 
-const debouncedLoadDoctors = useDebounceFn(() => loadDoctors())
-
-watch(search, () => {
-  lazyParams.value.first = 0
-  debouncedLoadDoctors()
-})
+useDebouncedSearchReload(search, lazyParams, loadDoctors)
 
 watch(selectedLinkUserId, (id) => {
   if (id == null) return
@@ -262,7 +255,7 @@ async function saveDoctor() {
     toast.add({
       severity: 'error',
       summary: 'Save failed',
-      detail: getErrorMessage(err, 'Unable to save doctor profile.'),
+      detail: getApiErrorMessage(err, 'Unable to save doctor profile.'),
     })
   } finally {
     saving.value = false
@@ -300,7 +293,7 @@ async function performToggleActive(doctor: Doctor, action: 'activate' | 'deactiv
     toast.add({
       severity: 'error',
       summary: `${action} failed`,
-      detail: getErrorMessage(err, `Unable to ${action} profile.`),
+      detail: getApiErrorMessage(err, `Unable to ${action} profile.`),
     })
   }
 }
@@ -319,37 +312,19 @@ async function onRowExpand(event: { data: Doctor }) {
   }
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(value))
-}
-
-function statusSeverity(status: string) {
-  const map: Record<string, string> = {
-    SCHEDULED: 'info',
-    IN_PROGRESS: 'warn',
-    COMPLETED: 'success',
-    CANCELLED: 'danger',
-  }
-  return map[status] ?? 'secondary'
-}
-
 onMounted(() => {
   void loadDoctors()
 })
 </script>
 
 <template>
-  <div class="doctors-page">
+  <div class="mc-page doctors-page">
     <ConfirmDialog />
 
-    <div class="page-header">
+    <div class="mc-page-header">
       <div>
         <h1>Doctor profiles</h1>
-        <p class="page-subtitle">
+        <p class="mc-page-subtitle">
           Clinic employee records linked to user accounts. Create the user under Admin → Users with the Doctor role,
           then link a profile here.
         </p>
@@ -362,7 +337,7 @@ onMounted(() => {
       />
     </div>
 
-    <IconField class="search-field">
+    <IconField class="mc-search-field">
       <InputIcon class="pi pi-search" />
       <InputText v-model="search" placeholder="Search profiles by name or specialization..." />
     </IconField>
@@ -386,7 +361,7 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No doctor profiles found.</div>
+        <div class="mc-table-empty">No doctor profiles found.</div>
       </template>
 
       <Column expander style="width: 3rem" />
@@ -420,7 +395,7 @@ onMounted(() => {
 
       <Column v-if="canManageDoctors" style="width: 9rem">
         <template #body="{ data }">
-          <div class="row-actions">
+          <div class="mc-row-actions">
             <Button
               icon="pi pi-pencil"
               severity="secondary"
@@ -444,10 +419,10 @@ onMounted(() => {
       </Column>
 
       <template #expansion="{ data: doctor }">
-        <div class="expansion-content">
+        <div class="mc-expansion-content">
           <h3>Appointment schedule</h3>
 
-          <div v-if="loadingAppointments[doctor.id]" class="loading-state">
+          <div v-if="loadingAppointments[doctor.id]" class="mc-loading-state">
             <i class="pi pi-spin pi-spinner" />
             Loading appointments...
           </div>
@@ -470,7 +445,7 @@ onMounted(() => {
             <Column field="clientName" header="Patient" />
             <Column header="Status">
               <template #body="{ data: apt }">
-                <Tag :value="apt.status" :severity="statusSeverity(apt.status)" />
+                <Tag :value="apt.status" :severity="appointmentStatusSeverity(apt.status)" />
               </template>
             </Column>
             <Column header="Notes">
@@ -480,7 +455,7 @@ onMounted(() => {
             </Column>
           </DataTable>
 
-          <p v-else class="no-data">No appointments for this profile.</p>
+          <p v-else class="mc-no-data">No appointments for this profile.</p>
         </div>
       </template>
     </DataTable>
@@ -489,21 +464,21 @@ onMounted(() => {
       v-model:visible="dialogVisible"
       :header="dialogMode === 'create' ? 'Link doctor profile' : 'Edit doctor profile'"
       modal
-      :style="{ width: '480px' }"
+      :style="{ width: DIALOG_WIDTH_DEFAULT }"
     >
-      <div class="dialog-form">
+      <div class="mc-dialog-form dialog-form">
         <template v-if="dialogMode === 'edit'">
-          <div class="login-info">
-            <div v-if="loadingLoginInfo" class="login-info-loading">
+          <div class="mc-login-info">
+            <div v-if="loadingLoginInfo" class="mc-login-info-loading">
               <i class="pi pi-spin pi-spinner" /> Loading linked account...
             </div>
             <template v-else-if="editLoginInfo">
-              <div class="login-info-row">
-                <span class="login-info-label">Login:</span>
+              <div class="mc-login-info-row">
+                <span class="mc-login-info-label">Login:</span>
                 <span>{{ editLoginInfo.username }}</span>
               </div>
-              <div class="login-info-row">
-                <span class="login-info-label">Email:</span>
+              <div class="mc-login-info-row">
+                <span class="mc-login-info-label">Email:</span>
                 <span>{{ editLoginInfo.email }}</span>
               </div>
             </template>
@@ -526,7 +501,7 @@ onMounted(() => {
               class="w-full"
               @filter="onLinkUserFilter"
             />
-            <p class="field-hint">
+            <p class="mc-field-hint">
               Only users with the Doctor role who do not already have a clinic profile are listed. Use Admin → Users to
               create the account first.
             </p>
@@ -571,67 +546,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.doctors-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-  max-width: 42rem;
-}
-
-.search-field :deep(.p-inputtext) {
-  width: 100%;
-  max-width: 400px;
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.table-empty,
-.no-data {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
-}
-
-.expansion-content {
-  padding: 1rem 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.expansion-content h3 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.loading-state {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--p-text-muted-color);
-  padding: 1rem 0;
-}
-
-.dialog-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
+/* Layout primitives live in assets/main.css (.mc-*) */
 .dialog-form .field {
   display: flex;
   flex-direction: column;
@@ -640,57 +555,5 @@ onMounted(() => {
 
 .dialog-form .field label {
   font-weight: 500;
-}
-
-.field-hint {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--p-text-muted-color);
-}
-
-.dialog-form .field :deep(.p-inputtext) {
-  width: 100%;
-}
-
-.dialog-form .field :deep(.p-select) {
-  width: 100%;
-}
-
-.login-info {
-  background: var(--p-surface-100);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.login-info-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.login-info-row {
-  display: flex;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
-.login-info-label {
-  color: var(--p-text-muted-color);
-  min-width: 3rem;
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .search-field :deep(.p-inputtext) {
-    max-width: none;
-  }
 }
 </style>

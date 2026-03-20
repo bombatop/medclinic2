@@ -12,13 +12,13 @@ export const DEFAULT_DEBOUNCE_MS = 350
  * @param delayMs - Delay in milliseconds (defaults to {@link DEFAULT_DEBOUNCE_MS})
  * @returns Debounced function
  */
-export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
-  fn: T,
+export function useDebounceFn<Args extends unknown[]>(
+  fn: (...args: Args) => unknown,
   delayMs: number = DEFAULT_DEBOUNCE_MS,
-): T {
+): (...args: Args) => void {
   let timeoutId: ReturnType<typeof setTimeout> | null = null
 
-  const debouncedFn = ((...args: unknown[]) => {
+  const debouncedFn = (...args: Args) => {
     if (timeoutId != null) {
       clearTimeout(timeoutId)
     }
@@ -26,7 +26,7 @@ export function useDebounceFn<T extends (...args: unknown[]) => unknown>(
       timeoutId = null
       fn(...args)
     }, delayMs)
-  }) as T
+  }
 
   onUnmounted(() => {
     if (timeoutId != null) {

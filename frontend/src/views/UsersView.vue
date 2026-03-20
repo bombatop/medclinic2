@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { useDebounceFn } from '@/composables/useDebounceFn'
+import { onMounted, reactive, ref } from 'vue'
+import {
+  pageFromLazyFirst,
+  springSortFromPrime,
+  useDebouncedSearchReload,
+} from '@/composables/useLazyPrimeTable'
 import { getLinkedAuthUserIds } from '@/api/doctors'
 import {
   activateUser,
@@ -13,6 +17,9 @@ import {
   type User,
 } from '@/api/users'
 import { getRoles as getRbacRoles, type Role as RbacRole } from '@/api/rbac'
+import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { formatDate } from '@/utils/formatting'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -70,11 +77,6 @@ const editForm = reactive({
   roles: [] as string[],
 })
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
-
 function doctorMissingClinicProfile(user: User): boolean {
   return user.roles.includes('DOCTOR') && !linkedAuthUserIds.value.has(user.id)
 }
@@ -89,13 +91,8 @@ const noRolesWarningDetail =
 async function loadUsers() {
   loading.value = true
   try {
-    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const sortField = lazyParams.value.sortField
-    const sortOrder = lazyParams.value.sortOrder
-    const sort =
-      sortField != null && sortOrder !== 0
-        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
-        : undefined
+    const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
+    const sort = springSortFromPrime(lazyParams.value.sortField, lazyParams.value.sortOrder)
     const [res, linkedIds] = await Promise.all([
       getUsers({
         page,
@@ -112,7 +109,7 @@ async function loadUsers() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load users.'),
+      detail: getApiErrorMessage(err, 'Unable to load users.'),
     })
   } finally {
     loading.value = false
@@ -132,7 +129,7 @@ async function loadRoleOptions() {
     toast.add({
       severity: 'error',
       summary: 'Roles load failed',
-      detail: getErrorMessage(err, 'Unable to load roles.'),
+      detail: getApiErrorMessage(err, 'Unable to load roles.'),
     })
   } finally {
     loadingRoles.value = false
@@ -158,12 +155,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadUsers()
 }
 
-const debouncedLoadUsers = useDebounceFn(() => loadUsers())
-
-watch(search, () => {
-  lazyParams.value.first = 0
-  debouncedLoadUsers()
-})
+useDebouncedSearchReload(search, lazyParams, loadUsers)
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -281,7 +273,7 @@ async function saveUser() {
     toast.add({
       severity: 'error',
       summary: 'Save failed',
-      detail: getErrorMessage(err, 'Unable to save user.'),
+      detail: getApiErrorMessage(err, 'Unable to save user.'),
     })
   } finally {
     saving.value = false
@@ -319,13 +311,9 @@ async function performToggleActive(user: User, action: 'activate' | 'deactivate'
     toast.add({
       severity: 'error',
       summary: `${action} failed`,
-      detail: getErrorMessage(err, `Unable to ${action} user.`),
+      detail: getApiErrorMessage(err, `Unable to ${action} user.`),
     })
   }
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
 }
 
 onMounted(() => {
@@ -335,18 +323,18 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="users-page">
+  <div class="mc-page users-page">
     <ConfirmDialog />
 
-    <div class="page-header">
+    <div class="mc-page-header">
       <div>
         <h1>Users</h1>
-        <p class="page-subtitle">Manage user accounts and roles.</p>
+        <p class="mc-page-subtitle">Manage user accounts and roles.</p>
       </div>
       <Button label="Add User" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
 
-    <IconField class="search-field">
+    <IconField class="mc-search-field">
       <InputIcon class="pi pi-search" />
       <InputText v-model="search" placeholder="Search by username, name, or email..." />
     </IconField>
@@ -368,7 +356,7 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No users found.</div>
+        <div class="mc-table-empty">No users found.</div>
       </template>
 
       <Column field="username" header="Username" sortable sortField="username" />
@@ -427,7 +415,7 @@ onMounted(() => {
 
       <Column style="width: 9rem">
         <template #body="{ data }">
-          <div class="row-actions">
+          <div class="mc-row-actions">
             <Button
               icon="pi pi-pencil"
               severity="secondary"
@@ -456,9 +444,9 @@ onMounted(() => {
       v-model:visible="dialogVisible"
       :header="dialogMode === 'create' ? 'New User' : 'Edit User'"
       modal
-      :style="{ width: '480px' }"
+      :style="{ width: DIALOG_WIDTH_DEFAULT }"
     >
-      <div class="dialog-form">
+      <div class="mc-dialog-form dialog-form">
         <template v-if="dialogMode === 'create'">
           <div class="field">
             <label for="dlg-username">Username *</label>
@@ -570,48 +558,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.users-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-}
-
-.search-field :deep(.p-inputtext) {
-  width: 100%;
-  max-width: 400px;
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.table-empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
-}
-
 .text-muted {
   color: var(--p-text-muted-color);
   font-size: 0.875rem;
-}
-
-.dialog-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
 }
 
 .dialog-form .field {
@@ -630,21 +579,5 @@ onMounted(() => {
 
 .roles-warning-message :deep(.p-message-text) {
   font-size: 0.875rem;
-}
-
-.dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-password),
-.dialog-form .field :deep(.p-select) {
-  width: 100%;
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .search-field :deep(.p-inputtext) {
-    max-width: none;
-  }
 }
 </style>

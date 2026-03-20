@@ -18,6 +18,7 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
+import { getApiErrorMessage } from '@/utils/apiError'
 
 const toast = useToast()
 
@@ -30,8 +31,8 @@ const selectedPermissionCodes = ref<string[]>([])
 const permissionSearch = ref('')
 const debouncedPermissionQuery = ref('')
 
-const applyDebouncedPermissionQuery = useDebounceFn((query: unknown) => {
-  debouncedPermissionQuery.value = typeof query === 'string' ? query : ''
+const applyDebouncedPermissionQuery = useDebounceFn((query: string) => {
+  debouncedPermissionQuery.value = query
 })
 
 watch(permissionSearch, (v) => {
@@ -55,6 +56,8 @@ const filteredPermissions = computed(() => {
 
 const permissionsTableDisabled = computed(() => loading.value || saving.value || !selectedRoleId.value)
 
+const selectedPermissionCodeSet = computed(() => new Set(selectedPermissionCodes.value))
+
 function togglePermission(code: string, granted: boolean) {
   if (granted) {
     if (!selectedPermissionCodes.value.includes(code)) {
@@ -63,11 +66,6 @@ function togglePermission(code: string, granted: boolean) {
   } else {
     selectedPermissionCodes.value = selectedPermissionCodes.value.filter((c) => c !== code)
   }
-}
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
 }
 
 async function loadBaseData() {
@@ -81,13 +79,12 @@ async function loadBaseData() {
     permissions.value = permissionsRes.sort((a, b) => a.code.localeCompare(b.code))
     if (!selectedRoleId.value && roles.value.length) {
       selectedRoleId.value = roles.value[0]!.id
-      await loadRolePermissions()
     }
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load role permissions data.'),
+      detail: getApiErrorMessage(err, 'Unable to load role permissions data.'),
     })
   } finally {
     loading.value = false
@@ -106,7 +103,7 @@ async function loadRolePermissions() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load selected role permissions.'),
+      detail: getApiErrorMessage(err, 'Unable to load selected role permissions.'),
     })
   }
 }
@@ -124,7 +121,7 @@ async function savePermissions() {
     toast.add({
       severity: 'error',
       summary: 'Save failed',
-      detail: getErrorMessage(err, 'Unable to update role permissions.'),
+      detail: getApiErrorMessage(err, 'Unable to update role permissions.'),
     })
   } finally {
     saving.value = false
@@ -141,11 +138,11 @@ watch(selectedRoleId, () => {
 </script>
 
 <template>
-  <div class="role-permissions-page">
-    <div class="page-header">
+  <div class="mc-page role-permissions-page">
+    <div class="mc-page-header">
       <div>
         <h1>Permissions</h1>
-        <p class="page-subtitle">Map business-action permissions to a role.</p>
+        <p class="mc-page-subtitle">Map business-action permissions to a role.</p>
       </div>
       <Button label="Save" icon="pi pi-check" :loading="saving" :disabled="loading" @click="savePermissions" />
     </div>
@@ -166,7 +163,7 @@ watch(selectedRoleId, () => {
 
       <div class="field permissions-table-block">
         <label for="permission-filter">Permissions</label>
-        <IconField class="search-field">
+        <IconField class="mc-search-field">
           <InputIcon class="pi pi-search" />
           <InputText
             id="permission-filter"
@@ -187,7 +184,7 @@ watch(selectedRoleId, () => {
           class="permissions-table"
         >
           <template #empty>
-            <div class="table-empty">
+            <div class="mc-table-empty">
               <template v-if="!selectedRoleId && !loading">Select a role to assign permissions.</template>
               <template v-else-if="debouncedPermissionQuery.trim() && !filteredPermissions.length">
                 No permissions match your filter.
@@ -212,7 +209,7 @@ watch(selectedRoleId, () => {
           <Column header="Granted" style="width: 8rem">
             <template #body="{ data }">
               <Checkbox
-                :model-value="selectedPermissionCodes.includes(data.code)"
+                :model-value="selectedPermissionCodeSet.has(data.code)"
                 binary
                 :disabled="permissionsTableDisabled"
                 @update:model-value="(v) => togglePermission(data.code, !!v)"
@@ -226,22 +223,6 @@ watch(selectedRoleId, () => {
 </template>
 
 <style scoped>
-.role-permissions-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-}
-
 .card {
   border: 1px solid var(--p-content-border-color);
   border-radius: 0.75rem;
@@ -265,18 +246,8 @@ watch(selectedRoleId, () => {
   gap: 0.75rem;
 }
 
-.search-field :deep(.p-inputtext) {
-  width: 100%;
-}
-
 .permissions-table {
   width: 100%;
-}
-
-.table-empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
 }
 
 .name-cell {

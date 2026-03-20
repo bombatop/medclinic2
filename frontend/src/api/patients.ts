@@ -1,4 +1,9 @@
 import http from './http'
+import type { Appointment } from './appointments'
+import { buildListQuery, type ListParams, type PageResponse } from './types/pagination'
+
+export type { Appointment } from './appointments'
+export type { ListParams, PageResponse } from './types/pagination'
 
 export interface Patient {
   id: number
@@ -26,45 +31,10 @@ export interface UpdatePatientRequest {
   notes?: string
 }
 
-export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
-export interface PageParams {
-  page?: number
-  size?: number
-  sort?: string
-}
-
-export interface Appointment {
-  id: number
-  employeeId: number
-  employeeName: string
-  clientId: number
-  clientName: string
-  startTime: string
-  endTime: string
-  status: string
-  notes: string | null
-  createdAt: string
-}
-
-export interface ListParams extends PageParams {
-  search?: string
-}
-
 export function getPatients(params?: ListParams): Promise<PageResponse<Patient>> {
-  const query: Record<string, unknown> = {
-    page: params?.page ?? 0,
-    size: params?.size ?? 20,
-  }
-  if (params?.sort != null) query.sort = params.sort
-  if (params?.search?.trim()) query.search = params.search.trim()
-  return http.get<PageResponse<Patient>>('/main/clients', { params: query }).then((res) => res.data)
+  return http
+    .get<PageResponse<Patient>>('/main/clients', { params: buildListQuery(params) })
+    .then((res) => res.data)
 }
 
 export function createPatient(data: CreatePatientRequest): Promise<Patient> {

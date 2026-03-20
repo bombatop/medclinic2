@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { useDebounceFn } from '@/composables/useDebounceFn'
+import { onMounted, reactive, ref } from 'vue'
+import {
+  pageFromLazyFirst,
+  springSortFromPrime,
+  useDebouncedSearchReload,
+} from '@/composables/useLazyPrimeTable'
 import {
   createPatient,
   deletePatient,
@@ -10,6 +14,9 @@ import {
   type Appointment,
   type Patient,
 } from '@/api/patients'
+import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { appointmentStatusSeverity, formatDate, formatTime } from '@/utils/formatting'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -54,21 +61,11 @@ const form = reactive({
   notes: '',
 })
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
-
 async function loadPatients() {
   loading.value = true
   try {
-    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const sortField = lazyParams.value.sortField
-    const sortOrder = lazyParams.value.sortOrder
-    const sort =
-      sortField != null && sortOrder !== 0
-        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
-        : undefined
+    const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
+    const sort = springSortFromPrime(lazyParams.value.sortField, lazyParams.value.sortOrder)
     const res = await getPatients({
       page,
       size: lazyParams.value.rows,
@@ -81,7 +78,7 @@ async function loadPatients() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load patients.'),
+      detail: getApiErrorMessage(err, 'Unable to load patients.'),
     })
   } finally {
     loading.value = false
@@ -107,12 +104,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadPatients()
 }
 
-const debouncedLoadPatients = useDebounceFn(() => loadPatients())
-
-watch(search, () => {
-  lazyParams.value.first = 0
-  debouncedLoadPatients()
-})
+useDebouncedSearchReload(search, lazyParams, loadPatients)
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -190,7 +182,7 @@ async function savePatient() {
     toast.add({
       severity: 'error',
       summary: 'Save failed',
-      detail: getErrorMessage(err, 'Unable to save patient.'),
+      detail: getApiErrorMessage(err, 'Unable to save patient.'),
     })
   } finally {
     savingPatient.value = false
@@ -224,7 +216,7 @@ async function performDelete(patient: Patient) {
     toast.add({
       severity: 'error',
       summary: 'Delete failed',
-      detail: getErrorMessage(err, 'Unable to delete patient.'),
+      detail: getApiErrorMessage(err, 'Unable to delete patient.'),
     })
   }
 }
@@ -243,42 +235,24 @@ async function onRowExpand(event: { data: Patient }) {
   }
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(value))
-}
-
-function statusSeverity(status: string) {
-  const map: Record<string, string> = {
-    SCHEDULED: 'info',
-    IN_PROGRESS: 'warn',
-    COMPLETED: 'success',
-    CANCELLED: 'danger',
-  }
-  return map[status] ?? 'secondary'
-}
-
 onMounted(() => {
   void loadPatients()
 })
 </script>
 
 <template>
-  <div class="patients-page">
+  <div class="mc-page patients-page">
     <ConfirmDialog />
 
-    <div class="page-header">
+    <div class="mc-page-header">
       <div>
         <h1>Patients</h1>
-        <p class="page-subtitle">Manage patient records and history.</p>
+        <p class="mc-page-subtitle">Manage patient records and history.</p>
       </div>
       <Button label="Add Patient" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
 
-    <IconField class="search-field">
+    <IconField class="mc-search-field">
       <InputIcon class="pi pi-search" />
       <InputText v-model="search" placeholder="Search by name, phone, or email..." />
     </IconField>
@@ -302,7 +276,7 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No patients found.</div>
+        <div class="mc-table-empty">No patients found.</div>
       </template>
 
       <Column expander style="width: 3rem" />
@@ -329,7 +303,7 @@ onMounted(() => {
 
       <Column style="width: 7rem">
         <template #body="{ data }">
-          <div class="row-actions">
+          <div class="mc-row-actions">
             <Button
               icon="pi pi-pencil"
               severity="secondary"
@@ -353,14 +327,14 @@ onMounted(() => {
       </Column>
 
       <template #expansion="{ data: patient }">
-        <div class="expansion-content">
+        <div class="mc-expansion-content">
           <div v-if="patient.notes" class="patient-notes">
             <strong>Notes:</strong> {{ patient.notes }}
           </div>
 
           <h3>Appointment History</h3>
 
-          <div v-if="loadingAppointments[patient.id]" class="loading-state">
+          <div v-if="loadingAppointments[patient.id]" class="mc-loading-state">
             <i class="pi pi-spin pi-spinner" />
             Loading appointments...
           </div>
@@ -383,7 +357,7 @@ onMounted(() => {
             <Column field="employeeName" header="Doctor" />
             <Column header="Status">
               <template #body="{ data: apt }">
-                <Tag :value="apt.status" :severity="statusSeverity(apt.status)" />
+                <Tag :value="apt.status" :severity="appointmentStatusSeverity(apt.status)" />
               </template>
             </Column>
             <Column header="Notes">
@@ -393,7 +367,7 @@ onMounted(() => {
             </Column>
           </DataTable>
 
-          <p v-else class="no-data">No appointments found for this patient.</p>
+          <p v-else class="mc-no-data">No appointments found for this patient.</p>
         </div>
       </template>
     </DataTable>
@@ -402,9 +376,9 @@ onMounted(() => {
       v-model:visible="dialogVisible"
       :header="dialogMode === 'create' ? 'New Patient' : 'Edit Patient'"
       modal
-      :style="{ width: '480px' }"
+      :style="{ width: DIALOG_WIDTH_DEFAULT }"
     >
-      <div class="dialog-form">
+      <div class="mc-dialog-form dialog-form">
         <div class="field">
           <label for="dlg-firstName">First name *</label>
           <InputText id="dlg-firstName" v-model="form.firstName" :disabled="savingPatient" />
@@ -447,68 +421,13 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.patients-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-}
-
-.search-field :deep(.p-inputtext) {
-  width: 100%;
-  max-width: 400px;
-}
-
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.table-empty,
-.no-data {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
-}
-
-.expansion-content {
-  padding: 1rem 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.expansion-content h3 {
-  font-size: 1rem;
-  font-weight: 600;
-}
-
 .patient-notes {
   color: var(--p-text-muted-color);
 }
 
-.loading-state {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--p-text-muted-color);
-  padding: 1rem 0;
-}
-
-.dialog-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.mc-expansion-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .dialog-form .field {
@@ -519,20 +438,5 @@ onMounted(() => {
 
 .dialog-form .field label {
   font-weight: 500;
-}
-
-.dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-textarea) {
-  width: 100%;
-}
-
-@media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .search-field :deep(.p-inputtext) {
-    max-width: none;
-  }
 }
 </style>

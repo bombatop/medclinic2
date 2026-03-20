@@ -1,4 +1,7 @@
 import http from './http'
+import type { PageParams, PageResponse } from './types/pagination'
+
+export type { PageParams, PageResponse } from './types/pagination'
 
 export interface Appointment {
   id: number
@@ -19,20 +22,6 @@ export interface CreateAppointmentRequest {
   startTime: string
   endTime: string
   notes?: string
-}
-
-export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
-export interface PageParams {
-  page?: number
-  size?: number
-  sort?: string
 }
 
 export interface AppointmentFilters {

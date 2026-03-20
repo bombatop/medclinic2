@@ -18,7 +18,7 @@ function isAuthRequest(url: string) {
 }
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = useAuthStore().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }

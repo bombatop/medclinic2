@@ -1,4 +1,7 @@
 import http from './http'
+import { buildListQuery, type ListParams, type PageResponse } from './types/pagination'
+
+export type { ListParams, PageResponse } from './types/pagination'
 
 export interface User {
   id: number
@@ -35,32 +38,10 @@ export interface UserRolesResponse {
   roles: string[]
 }
 
-export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
-export interface PageParams {
-  page?: number
-  size?: number
-  sort?: string
-}
-
-export interface ListParams extends PageParams {
-  search?: string
-}
-
 export function getUsers(params?: ListParams): Promise<PageResponse<User>> {
-  const query: Record<string, unknown> = {
-    page: params?.page ?? 0,
-    size: params?.size ?? 20,
-  }
-  if (params?.sort) query.sort = params.sort
-  if (params?.search?.trim()) query.search = params.search.trim()
-  return http.get<PageResponse<User>>('/auth/auth/users', { params: query }).then((res) => res.data)
+  return http
+    .get<PageResponse<User>>('/auth/auth/users', { params: buildListQuery(params) })
+    .then((res) => res.data)
 }
 
 export function createUser(data: CreateUserRequest): Promise<User> {

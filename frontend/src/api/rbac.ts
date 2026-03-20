@@ -1,5 +1,7 @@
 import http from './http'
-import type { PageResponse, PageParams } from './users'
+import { buildListQuery, type PageParams, type PageResponse } from './types/pagination'
+
+export type { PageParams, PageResponse } from './types/pagination'
 
 export interface Role {
   id: number
@@ -63,13 +65,9 @@ export interface RbacListParams extends PageParams {
 }
 
 export function getRoles(params?: RbacListParams): Promise<PageResponse<Role>> {
-  const query: Record<string, unknown> = {
-    page: params?.page ?? 0,
-    size: params?.size ?? 20,
-  }
-  if (params?.sort) query.sort = params.sort
-  if (params?.search?.trim()) query.search = params.search.trim()
-  return http.get<PageResponse<Role>>('/auth/auth/rbac/roles', { params: query }).then((res) => res.data)
+  return http
+    .get<PageResponse<Role>>('/auth/auth/rbac/roles', { params: buildListQuery(params) })
+    .then((res) => res.data)
 }
 
 export function getRole(id: number): Promise<Role> {
@@ -112,7 +110,7 @@ export function getRbacAuditLogs(
     page: params?.page ?? 0,
     size: params?.size ?? 20,
   }
-  if (params?.sort) query.sort = params.sort
+  if (params?.sort != null && params.sort !== '') query.sort = params.sort
   if (filters?.actorUsername) query.actorUsername = filters.actorUsername
   if (filters?.action) query.action = filters.action
   if (filters?.from) query.from = filters.from

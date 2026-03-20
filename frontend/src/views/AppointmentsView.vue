@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
+  pageFromLazyFirst,
+  springSortFromPrime,
+} from '@/composables/useLazyPrimeTable'
+import {
   createAppointment,
   getAppointments,
   updateAppointment,
@@ -9,7 +13,10 @@ import {
 } from '@/api/appointments'
 import { getDoctors, type Doctor } from '@/api/doctors'
 import { getPatients, type Patient } from '@/api/patients'
+import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
 import { useAuthStore } from '@/stores/auth'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { appointmentStatusSeverity, formatDate, formatTime } from '@/utils/formatting'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
@@ -232,15 +239,10 @@ const activeFilters = computed(() => {
   }
 })
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
-
 async function loadAppointments() {
   loading.value = true
   try {
-    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
+    const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
     const sortField = lazyParams.value.sortField
     const sortOrder = lazyParams.value.sortOrder
     const backendSortField =
@@ -249,10 +251,7 @@ async function loadAppointments() {
         : sortField === 'employeeName'
           ? 'employee.lastName'
           : sortField
-    const sort =
-      sortField != null && sortOrder !== 0
-        ? `${backendSortField},${sortOrder === 1 ? 'asc' : 'desc'}`
-        : undefined
+    const sort = springSortFromPrime(backendSortField, sortOrder)
     const res = await getAppointments(
       { page, size: lazyParams.value.rows, sort },
       activeFilters.value,
@@ -263,7 +262,7 @@ async function loadAppointments() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load appointments.'),
+      detail: getApiErrorMessage(err, 'Unable to load appointments.'),
     })
   } finally {
     loading.value = false
@@ -548,7 +547,7 @@ async function saveAppointment() {
     toast.add({
       severity: 'error',
       summary: 'Create failed',
-      detail: getErrorMessage(err, 'Unable to create appointment.'),
+      detail: getApiErrorMessage(err, 'Unable to create appointment.'),
     })
   } finally {
     saving.value = false
@@ -606,7 +605,7 @@ async function saveEditAppointment() {
     toast.add({
       severity: 'error',
       summary: 'Update failed',
-      detail: getErrorMessage(err, 'Unable to update appointment.'),
+      detail: getApiErrorMessage(err, 'Unable to update appointment.'),
     })
   } finally {
     saving.value = false
@@ -634,42 +633,27 @@ async function changeStatus(apt: Appointment, status: Appointment['status']) {
     toast.add({
       severity: 'error',
       summary: 'Update failed',
-      detail: getErrorMessage(err, 'Unable to update status.'),
+      detail: getApiErrorMessage(err, 'Unable to update status.'),
     })
   }
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value))
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(value))
-}
-
-function statusSeverity(status: string) {
-  const map: Record<string, string> = {
-    SCHEDULED: 'info',
-    IN_PROGRESS: 'warn',
-    COMPLETED: 'success',
-    CANCELLED: 'danger',
-  }
-  return map[status] ?? 'secondary'
-}
-
 onMounted(() => {
   void loadDoctorsAndPatients()
-  if (viewMode.value === 'timetable') applyTimetableScopeToFilters()
-  reloadCurrentView()
+  if (viewMode.value === 'timetable') {
+    applyTimetableScopeToFilters()
+  } else {
+    reloadCurrentView()
+  }
 })
 </script>
 
 <template>
-  <div class="appointments-page">
-    <div class="page-header">
+  <div class="mc-page appointments-page">
+    <div class="mc-page-header">
       <div>
         <h1>Appointments</h1>
-        <p class="page-subtitle">Schedule and manage appointments.</p>
+        <p class="mc-page-subtitle">Schedule and manage appointments.</p>
       </div>
       <Button
         v-if="canCreateAppointments"
@@ -722,7 +706,7 @@ onMounted(() => {
         showClear
         class="filter-select"
       />
-      <IconField class="search-field">
+      <IconField class="mc-search-field">
         <InputIcon class="pi pi-search" />
         <InputText v-model="search" placeholder="Search in loaded results..." />
       </IconField>
@@ -774,7 +758,7 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No appointments found.</div>
+        <div class="mc-table-empty">No appointments found.</div>
       </template>
 
       <Column header="Date" sortable sortField="startTime">
@@ -795,7 +779,7 @@ onMounted(() => {
 
       <Column header="Status" sortable sortField="status" style="width: 8rem">
         <template #body="{ data }">
-          <Tag :value="data.status" :severity="statusSeverity(data.status)" />
+          <Tag :value="data.status" :severity="appointmentStatusSeverity(data.status)" />
         </template>
       </Column>
 
@@ -823,7 +807,7 @@ onMounted(() => {
         style="width: 10rem"
       >
         <template #body="{ data }">
-          <div v-if="data.status === 'SCHEDULED'" class="row-actions">
+          <div v-if="data.status === 'SCHEDULED'" class="mc-row-actions">
             <Button
               label="Start"
               size="small"
@@ -838,7 +822,7 @@ onMounted(() => {
               @click="changeStatus(data, 'CANCELLED')"
             />
           </div>
-          <div v-else-if="data.status === 'IN_PROGRESS'" class="row-actions">
+          <div v-else-if="data.status === 'IN_PROGRESS'" class="mc-row-actions">
             <Button
               label="Complete"
               size="small"
@@ -906,9 +890,9 @@ onMounted(() => {
       v-model:visible="dialogVisible"
       header="New Appointment"
       modal
-      :style="{ width: '480px' }"
+      :style="{ width: DIALOG_WIDTH_DEFAULT }"
     >
-      <div class="dialog-form">
+      <div class="mc-dialog-form dialog-form">
         <div class="field">
           <label for="dlg-doctor">Doctor *</label>
           <Select
@@ -999,12 +983,12 @@ onMounted(() => {
       v-model:visible="detailsModalOpen"
       header="Edit Appointment"
       modal
-      :style="{ width: '480px' }"
+      :style="{ width: DIALOG_WIDTH_DEFAULT }"
     >
-      <div v-if="viewingAppointment" class="dialog-form">
+      <div v-if="viewingAppointment" class="mc-dialog-form dialog-form">
         <div class="field">
           <label>Status</label>
-          <Tag :value="viewingAppointment.status" :severity="statusSeverity(viewingAppointment.status)" />
+          <Tag :value="viewingAppointment.status" :severity="appointmentStatusSeverity(viewingAppointment.status)" />
         </div>
         <div class="field">
           <label for="edit-doctor">Doctor *</label>
@@ -1077,7 +1061,7 @@ onMounted(() => {
           v-if="canUpdateAppointmentStatus && viewingAppointment.status !== 'CANCELLED' && viewingAppointment.status !== 'COMPLETED'"
           class="field detail-actions"
         >
-          <div class="row-actions">
+          <div class="mc-row-actions">
             <Button
               v-if="viewingAppointment.status === 'SCHEDULED'"
               label="Start"
@@ -1132,23 +1116,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.appointments-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-}
-
 .filters {
   display: flex;
   gap: 1rem;
@@ -1156,7 +1123,7 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.search-field :deep(.p-inputtext) {
+.mc-search-field :deep(.p-inputtext) {
   width: 100%;
   max-width: 300px;
 }
@@ -1169,26 +1136,8 @@ onMounted(() => {
   min-width: 140px;
 }
 
-.row-actions {
-  display: flex;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-
 .text-muted {
   color: var(--p-text-muted-color);
-}
-
-.table-empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
-}
-
-.dialog-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
 }
 
 .dialog-form .field {
@@ -1322,11 +1271,7 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-  }
-
-  .search-field :deep(.p-inputtext) {
+  .mc-search-field :deep(.p-inputtext) {
     max-width: none;
   }
 }
