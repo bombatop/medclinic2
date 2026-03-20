@@ -39,6 +39,11 @@ public class EmployeeController {
         return ResponseEntity.ok(PageResponse.from(employeeService.getAllEmployees(search, pageable)));
     }
 
+    @GetMapping("/linked-auth-user-ids")
+    public ResponseEntity<List<Long>> getLinkedAuthUserIds() {
+        return ResponseEntity.ok(employeeService.getLinkedAuthUserIds());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<EmployeeResponse> getEmployee(@PathVariable Long id) {
         return ResponseEntity.ok(employeeService.getEmployeeById(id));
