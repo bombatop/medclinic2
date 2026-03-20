@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import type { Appointment } from '@/api/appointments'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
+import {
+  filterByParticipantSearch,
+  resetAppointmentForm,
+} from '@/views/appointments/appointmentHelpers'
 import { useAppointmentFilters } from '@/views/appointments/composables/useAppointmentFilters'
 import { useAppointmentForms } from '@/views/appointments/composables/useAppointmentForms'
 import { useAppointmentMutations } from '@/views/appointments/composables/useAppointmentMutations'
@@ -41,24 +46,13 @@ const {
   loadAppointments,
   onPage,
   onSort,
+  resetToFirstPage,
 } = useAppointmentTableLoad(activeFilters, toast)
 
 const search = ref('')
 
-function filterBySearch<T extends { employeeName: string; clientName: string }>(
-  list: T[],
-  q: string,
-): T[] {
-  if (!q) return list
-  const lower = q.toLowerCase()
-  return list.filter((a) => {
-    const haystack = `${a.employeeName} ${a.clientName}`.toLowerCase()
-    return haystack.includes(lower)
-  })
-}
-
 const filteredAppointments = computed(() =>
-  filterBySearch(appointments.value, search.value.trim()),
+  filterByParticipantSearch(appointments.value, search.value.trim()),
 )
 
 const {
@@ -68,7 +62,7 @@ const {
   timeSlots,
   getAppointmentsForCell,
   loadTimetableAppointments,
-} = useAppointmentTimetable(activeFilters, viewMode, filterDateFrom, filterDateTo, search)
+} = useAppointmentTimetable(activeFilters, viewMode, filterDateFrom, filterDateTo, search, toast)
 
 function loadForCurrentView() {
   if (viewMode.value === 'timetable') void loadTimetableAppointments()
@@ -76,18 +70,21 @@ function loadForCurrentView() {
 }
 
 function reloadCurrentView() {
-  lazyParams.value = {
-    first: 0,
-    rows: lazyParams.value.rows,
-    sortField: lazyParams.value.sortField,
-    sortOrder: lazyParams.value.sortOrder,
-  }
+  resetToFirstPage()
   void loadForCurrentView()
 }
 
+const debouncedReloadCurrentView = useDebounceFn(reloadCurrentView, 120)
+
+watch(viewMode, (mode) => {
+  if (mode === 'table') {
+    reloadCurrentView()
+  }
+})
+
 watch(
-  [viewMode, timetableScope, filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo],
-  reloadCurrentView,
+  [filterDoctor, filterPatient, filterStatus, filterDateFrom, filterDateTo],
+  () => debouncedReloadCurrentView(),
 )
 
 const { doctorOptions, patientOptions, loadDoctorsAndPatients } = useDoctorPatientOptions()
@@ -129,7 +126,7 @@ const { saveAppointment, saveEditAppointment, changeStatus } = useAppointmentMut
 const detailsModalOpen = computed({
   get: () => viewingAppointment.value != null,
   set: (v) => {
-    if (!v) viewingAppointment.value = null
+    if (!v) closeDetailsModal()
   },
 })
 
@@ -149,11 +146,7 @@ function closeDetailsModal() {
 }
 
 function openCreateDialog() {
-  form.employeeId = null
-  form.clientId = null
-  form.startTime = null
-  form.endTime = null
-  form.notes = ''
+  resetAppointmentForm(form)
   dialogVisible.value = true
 }
 

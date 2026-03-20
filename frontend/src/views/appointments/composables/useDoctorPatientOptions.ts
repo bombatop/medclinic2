@@ -1,9 +1,10 @@
 import { computed, ref } from 'vue'
 import { getDoctors, type Doctor } from '@/api/doctors'
 import { getPatients, type Patient } from '@/api/patients'
-
-export type DoctorSelectOption = { label: string; value: number }
-export type PatientSelectOption = { label: string; value: number }
+import type {
+  DoctorSelectOption,
+  PatientSelectOption,
+} from '@/views/appointments/appointmentTypes'
 
 export function useDoctorPatientOptions() {
   const doctors = ref<Doctor[]>([])

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
-import type { AppointmentFormState } from '@/views/appointments/composables/useAppointmentForms'
 import {
   applyDurationPreset,
   formatDuration,
-} from '@/views/appointments/composables/useAppointmentForms'
+} from '@/views/appointments/appointmentHelpers'
 import type {
+  AppointmentFormState,
   DoctorSelectOption,
   PatientSelectOption,
-} from '@/views/appointments/composables/useDoctorPatientOptions'
+} from '@/views/appointments/appointmentTypes'
 import Button from 'primevue/button'
 import DatePicker from 'primevue/datepicker'
 import Dialog from 'primevue/dialog'
@@ -91,7 +91,7 @@ const emit = defineEmits<{
           :disabled="saving || !form.startTime"
           fluid
         />
-        <div v-if="form.startTime" class="presets-row">
+        <div v-if="form.startTime" class="mc-duration-presets">
           <Button
             v-for="p in durationPresets"
             :key="p.value"
@@ -102,7 +102,7 @@ const emit = defineEmits<{
             @click="applyDurationPreset(form.startTime, (d) => (form.endTime = d), p.value)"
           />
         </div>
-        <p v-if="formDurationMinutes != null" class="field-helper">
+        <p v-if="formDurationMinutes != null" class="mc-field-hint">
           {{ formatDuration(formDurationMinutes) }}
         </p>
       </div>
@@ -129,32 +129,3 @@ const emit = defineEmits<{
     </template>
   </Dialog>
 </template>
-
-<style scoped>
-.dialog-form .field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.dialog-form .field label {
-  font-weight: 500;
-}
-
-.presets-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.field-helper {
-  font-size: 0.875rem;
-  color: var(--p-text-muted-color);
-  margin: 0;
-}
-
-.dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-textarea) {
-  width: 100%;
-}
-</style>

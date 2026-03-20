@@ -1,32 +1,47 @@
 import { computed, reactive, watch } from 'vue'
-import {
-  DURATION_PRESETS,
-} from '@/views/appointments/appointmentConstants'
+import { DURATION_PRESETS } from '@/views/appointments/appointmentConstants'
+import type { AppointmentFormState } from '@/views/appointments/appointmentTypes'
 
-export type AppointmentFormState = {
-  employeeId: number | null
-  clientId: number | null
-  startTime: Date | null
-  endTime: Date | null
-  notes: string
-}
-
-export function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} min`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  return m === 0 ? `${h} h` : `${h} h ${m} min`
-}
-
-export function applyDurationPreset(
-  startTime: Date | null,
-  setEndTime: (d: Date | null) => void,
-  minutes: number,
+function syncEndTimeOnStartChange(
+  state: AppointmentFormState,
+  start: Date | null,
+  prevStart: Date | null,
 ) {
-  if (!startTime) return
-  const end = new Date(startTime)
-  end.setMinutes(end.getMinutes() + minutes)
-  setEndTime(end)
+  if (!start) return
+  if (!state.endTime) {
+    const end = new Date(start)
+    end.setMinutes(end.getMinutes() + 30)
+    state.endTime = end
+    return
+  }
+  if (prevStart && state.endTime.getTime() <= start.getTime()) {
+    const durationMin = Math.max(
+      5,
+      Math.round((state.endTime.getTime() - prevStart.getTime()) / 60000),
+    )
+    const end = new Date(start)
+    end.setMinutes(end.getMinutes() + durationMin)
+    state.endTime = end
+  }
+}
+
+function endTimeModelFor(state: AppointmentFormState) {
+  return computed({
+    get: () => state.endTime,
+    set: (value: Date | null) => {
+      if (!value) {
+        state.endTime = null
+        return
+      }
+      if (!state.startTime) {
+        state.endTime = value
+        return
+      }
+      const end = new Date(state.startTime)
+      end.setHours(value.getHours(), value.getMinutes(), 0, 0)
+      state.endTime = end
+    },
+  })
 }
 
 export function useAppointmentForms() {
@@ -56,79 +71,17 @@ export function useAppointmentForms() {
     return Math.round((editForm.endTime.getTime() - editForm.startTime.getTime()) / 60000)
   })
 
-  const formEndTimeModel = computed({
-    get: () => form.endTime,
-    set: (v: Date | null) => {
-      if (!v) {
-        form.endTime = null
-        return
-      }
-      if (!form.startTime) {
-        form.endTime = v
-        return
-      }
-      const end = new Date(form.startTime)
-      end.setHours(v.getHours(), v.getMinutes(), 0, 0)
-      form.endTime = end
-    },
-  })
-
-  const editFormEndTimeModel = computed({
-    get: () => editForm.endTime,
-    set: (v: Date | null) => {
-      if (!v) {
-        editForm.endTime = null
-        return
-      }
-      if (!editForm.startTime) {
-        editForm.endTime = v
-        return
-      }
-      const end = new Date(editForm.startTime)
-      end.setHours(v.getHours(), v.getMinutes(), 0, 0)
-      editForm.endTime = end
-    },
-  })
+  const formEndTimeModel = endTimeModelFor(form)
+  const editFormEndTimeModel = endTimeModelFor(editForm)
 
   watch(
     () => form.startTime,
-    (start, prevStart) => {
-      if (!start) return
-      if (!form.endTime) {
-        const end = new Date(start)
-        end.setMinutes(end.getMinutes() + 30)
-        form.endTime = end
-        return
-      }
-      if (prevStart && form.endTime.getTime() <= start.getTime()) {
-        const durationMin = Math.round((form.endTime.getTime() - prevStart.getTime()) / 60000)
-        const end = new Date(start)
-        end.setMinutes(end.getMinutes() + Math.max(5, durationMin))
-        form.endTime = end
-      }
-    },
+    (start, prevStart) => syncEndTimeOnStartChange(form, start, prevStart),
   )
 
   watch(
     () => editForm.startTime,
-    (start, prevStart) => {
-      if (!start) return
-      if (!editForm.endTime) {
-        const end = new Date(start)
-        end.setMinutes(end.getMinutes() + 30)
-        editForm.endTime = end
-        return
-      }
-      if (prevStart && editForm.endTime.getTime() <= start.getTime()) {
-        const durationMin = Math.max(
-          5,
-          Math.round((editForm.endTime.getTime() - prevStart.getTime()) / 60000),
-        )
-        const end = new Date(start)
-        end.setMinutes(end.getMinutes() + durationMin)
-        editForm.endTime = end
-      }
-    },
+    (start, prevStart) => syncEndTimeOnStartChange(editForm, start, prevStart),
   )
 
   return {

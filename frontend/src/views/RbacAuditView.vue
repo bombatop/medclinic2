@@ -11,7 +11,8 @@ import { getApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime } from '@/utils/formatting'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
-import DataTable, { type DataTableSortEvent } from 'primevue/datatable'
+import DataTable from 'primevue/datatable'
+import type { DataTableSortEvent } from 'primevue/datatable'
 import InputText from 'primevue/inputtext'
 
 const toast = useToast()

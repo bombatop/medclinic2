@@ -1,5 +1,6 @@
 import { ref, type ComputedRef } from 'vue'
-import type { DataTableSortEvent } from 'primevue/datatable'
+import type { LazyTableState } from '@/composables/useLazyPrimeTable'
+import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import {
   lazySortStateFromDataTable,
   pageFromLazyFirst,
@@ -16,14 +17,16 @@ export function useAppointmentTableLoad(
   const appointments = ref<Appointment[]>([])
   const totalRecords = ref(0)
   const loading = ref(true)
-  const lazyParams = ref({
+  const lazyParams = ref<LazyTableState>({
     first: 0,
     rows: 10,
-    sortField: 'startTime' as string | null,
-    sortOrder: -1 as number,
+    sortField: 'startTime',
+    sortOrder: -1,
   })
+  let latestRequestId = 0
 
   async function loadAppointments() {
+    const requestId = ++latestRequestId
     loading.value = true
     try {
       const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
@@ -40,20 +43,24 @@ export function useAppointmentTableLoad(
         { page, size: lazyParams.value.rows, sort },
         activeFilters.value,
       )
+      if (requestId !== latestRequestId) return
       appointments.value = res.content
       totalRecords.value = res.totalElements
     } catch (err: unknown) {
+      if (requestId !== latestRequestId) return
       toast.add({
         severity: 'error',
         summary: 'Load failed',
         detail: getApiErrorMessage(err, 'Unable to load appointments.'),
       })
     } finally {
-      loading.value = false
+      if (requestId === latestRequestId) {
+        loading.value = false
+      }
     }
   }
 
-  function onPage(event: { first: number; rows: number }) {
+  function onPage(event: DataTablePageEvent) {
     lazyParams.value = {
       first: event.first,
       rows: event.rows,
@@ -74,6 +81,10 @@ export function useAppointmentTableLoad(
     void loadAppointments()
   }
 
+  function resetToFirstPage() {
+    lazyParams.value = { ...lazyParams.value, first: 0 }
+  }
+
   return {
     appointments,
     totalRecords,
@@ -82,5 +93,6 @@ export function useAppointmentTableLoad(
     loadAppointments,
     onPage,
     onSort,
+    resetToFirstPage,
   }
 }

@@ -2,15 +2,15 @@
 import type { Appointment } from '@/api/appointments'
 import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
 import { appointmentStatusSeverity } from '@/utils/formatting'
-import type { AppointmentFormState } from '@/views/appointments/composables/useAppointmentForms'
 import {
   applyDurationPreset,
   formatDuration,
-} from '@/views/appointments/composables/useAppointmentForms'
+} from '@/views/appointments/appointmentHelpers'
 import type {
+  AppointmentFormState,
   DoctorSelectOption,
   PatientSelectOption,
-} from '@/views/appointments/composables/useDoctorPatientOptions'
+} from '@/views/appointments/appointmentTypes'
 import Button from 'primevue/button'
 import DatePicker from 'primevue/datepicker'
 import Dialog from 'primevue/dialog'
@@ -106,7 +106,7 @@ const emit = defineEmits<{
           :disabled="saving || !editForm.startTime"
           fluid
         />
-        <div v-if="editForm.startTime" class="presets-row">
+        <div v-if="editForm.startTime" class="mc-duration-presets">
           <Button
             v-for="p in durationPresets"
             :key="p.value"
@@ -117,7 +117,7 @@ const emit = defineEmits<{
             @click="applyDurationPreset(editForm.startTime, (d) => (editForm.endTime = d), p.value)"
           />
         </div>
-        <p v-if="editFormDurationMinutes != null" class="field-helper">
+        <p v-if="editFormDurationMinutes != null" class="mc-field-hint">
           {{ formatDuration(editFormDurationMinutes) }}
         </p>
       </div>
@@ -131,7 +131,7 @@ const emit = defineEmits<{
           viewingAppointment.status !== 'CANCELLED' &&
           viewingAppointment.status !== 'COMPLETED'
         "
-        class="field detail-actions"
+        class="field mc-detail-actions"
       >
         <div class="mc-row-actions">
           <Button
@@ -185,36 +185,3 @@ const emit = defineEmits<{
     </template>
   </Dialog>
 </template>
-
-<style scoped>
-.dialog-form .field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.dialog-form .field label {
-  font-weight: 500;
-}
-
-.presets-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.field-helper {
-  font-size: 0.875rem;
-  color: var(--p-text-muted-color);
-  margin: 0;
-}
-
-.dialog-form .field :deep(.p-inputtext),
-.dialog-form .field :deep(.p-textarea) {
-  width: 100%;
-}
-
-.detail-actions {
-  margin-top: 0.5rem;
-}
-</style>

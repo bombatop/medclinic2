@@ -1,31 +1,41 @@
 import { computed, ref, type ComputedRef, type Ref } from 'vue'
 import { getAppointments, type Appointment, type AppointmentFilters } from '@/api/appointments'
+import { getApiErrorMessage } from '@/utils/apiError'
 import { TIME_SLOTS } from '@/views/appointments/appointmentConstants'
+import { filterByParticipantSearch } from '@/views/appointments/appointmentHelpers'
+import type { AppointmentViewMode } from '@/views/appointments/appointmentTypes'
+import type { ToastServiceMethods } from 'primevue/toastservice'
 
-function filterBySearch<T extends { employeeName: string; clientName: string }>(
-  list: T[],
-  q: string,
-): T[] {
-  if (!q) return list
-  const lower = q.toLowerCase()
-  return list.filter((a) => {
-    const haystack = `${a.employeeName} ${a.clientName}`.toLowerCase()
-    return haystack.includes(lower)
-  })
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+function cellKey(day: Date, slotStart: string): string {
+  return `${dayKey(day)}|${slotStart}`
+}
+
+function slotFromDate(d: Date): string {
+  const hour = String(d.getHours()).padStart(2, '0')
+  const minute = d.getMinutes() >= 30 ? '30' : '00'
+  return `${hour}:${minute}`
 }
 
 export function useAppointmentTimetable(
   activeFilters: ComputedRef<AppointmentFilters>,
-  viewMode: Ref<'table' | 'timetable'>,
+  viewMode: Ref<AppointmentViewMode>,
   filterDateFrom: Ref<Date | null>,
   filterDateTo: Ref<Date | null>,
   search: Ref<string>,
+  toast: ToastServiceMethods,
 ) {
   const timetableAppointments = ref<Appointment[]>([])
   const timetableLoading = ref(false)
+  let latestRequestId = 0
 
   const filteredTimetableAppointments = computed(() =>
-    filterBySearch(timetableAppointments.value, search.value.trim()),
+    filterByParticipantSearch(timetableAppointments.value, search.value.trim()),
   )
 
   const timetableFrom = computed(() => {
@@ -62,35 +72,45 @@ export function useAppointmentTimetable(
     return days
   })
 
+  const appointmentsByCell = computed(() => {
+    const map = new Map<string, Appointment[]>()
+    for (const appointment of filteredTimetableAppointments.value) {
+      const start = new Date(appointment.startTime)
+      const key = cellKey(start, slotFromDate(start))
+      const list = map.get(key)
+      if (list) list.push(appointment)
+      else map.set(key, [appointment])
+    }
+    return map
+  })
+
   function getAppointmentsForCell(day: Date, slotStart: string): Appointment[] {
-    const parts = slotStart.split(':')
-    const h = Number(parts[0])
-    const m = Number(parts[1] ?? 0)
-    if (!Number.isFinite(h) || !Number.isFinite(m)) return []
-    const cellStart = new Date(day)
-    cellStart.setHours(h, m, 0, 0)
-    const cellEnd = new Date(cellStart)
-    cellEnd.setMinutes(cellEnd.getMinutes() + 30)
-    return filteredTimetableAppointments.value.filter((a) => {
-      const start = new Date(a.startTime)
-      return start >= cellStart && start < cellEnd
-    })
+    return appointmentsByCell.value.get(cellKey(day, slotStart)) ?? []
   }
 
   async function loadTimetableAppointments() {
     if (viewMode.value !== 'timetable') return
-    if (timetableLoading.value) return
+    const requestId = ++latestRequestId
     timetableLoading.value = true
     try {
       const res = await getAppointments(
         { page: 0, size: 500 },
         activeFilters.value,
       )
+      if (requestId !== latestRequestId) return
       timetableAppointments.value = res.content
-    } catch {
+    } catch (err: unknown) {
+      if (requestId !== latestRequestId) return
       timetableAppointments.value = []
+      toast.add({
+        severity: 'error',
+        summary: 'Load failed',
+        detail: getApiErrorMessage(err, 'Unable to load timetable appointments.'),
+      })
     } finally {
-      timetableLoading.value = false
+      if (requestId === latestRequestId) {
+        timetableLoading.value = false
+      }
     }
   }
 

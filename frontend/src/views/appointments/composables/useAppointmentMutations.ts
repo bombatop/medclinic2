@@ -8,13 +8,65 @@ import {
 import { getApiErrorMessage } from '@/utils/apiError'
 import { toLocalDateTimeISO } from '@/utils/formatting'
 import type { ToastServiceMethods } from 'primevue/toastservice'
-import type { AppointmentFormState } from '@/views/appointments/composables/useAppointmentForms'
+import type {
+  AppointmentFormState,
+  AppointmentViewMode,
+} from '@/views/appointments/appointmentTypes'
+import { resetAppointmentForm } from '@/views/appointments/appointmentHelpers'
 
-type LazyParams = {
-  first: number
-  rows: number
-  sortField: string | null
-  sortOrder: number
+type LazyParams = { first: number; rows: number; sortField: string | null; sortOrder: number }
+
+type AppointmentPayload = {
+  employeeId: number
+  clientId: number
+  startTime: string
+  endTime: string
+  notes?: string
+}
+
+function validateAppointmentForm(
+  form: AppointmentFormState,
+  toast: ToastServiceMethods,
+): AppointmentPayload | null {
+  if (form.employeeId == null) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
+    return null
+  }
+  if (form.clientId == null) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Patient is required.' })
+    return null
+  }
+  if (!form.startTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
+    return null
+  }
+  if (!form.endTime) {
+    toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
+    return null
+  }
+  if (form.endTime.getTime() <= form.startTime.getTime()) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Validation',
+      detail: 'End time must be after start time.',
+    })
+    return null
+  }
+  return {
+    employeeId: form.employeeId,
+    clientId: form.clientId,
+    startTime: toLocalDateTimeISO(form.startTime),
+    endTime: toLocalDateTimeISO(form.endTime),
+    notes: form.notes.trim() || undefined,
+  }
+}
+
+function upsertById(list: Appointment[], updated: Appointment): Appointment[] {
+  const index = list.findIndex((item) => item.id === updated.id)
+  if (index < 0) return list
+  const next = [...list]
+  next[index] = updated
+  return next
 }
 
 export function useAppointmentMutations(deps: {
@@ -28,7 +80,7 @@ export function useAppointmentMutations(deps: {
   totalRecords: Ref<number>
   lazyParams: Ref<LazyParams>
   timetableAppointments: Ref<Appointment[]>
-  viewMode: Ref<'table' | 'timetable'>
+  viewMode: Ref<AppointmentViewMode>
   dialogVisible: Ref<boolean>
   viewingAppointment: Ref<Appointment | null>
   editingAppointmentId: Ref<number | null>
@@ -43,40 +95,12 @@ export function useAppointmentMutations(deps: {
       })
       return
     }
-    if (deps.form.employeeId == null) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
-      return
-    }
-    if (deps.form.clientId == null) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Patient is required.' })
-      return
-    }
-    if (!deps.form.startTime) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
-      return
-    }
-    if (!deps.form.endTime) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
-      return
-    }
-    if (deps.form.endTime.getTime() <= deps.form.startTime.getTime()) {
-      deps.toast.add({
-        severity: 'warn',
-        summary: 'Validation',
-        detail: 'End time must be after start time.',
-      })
-      return
-    }
+    const payload = validateAppointmentForm(deps.form, deps.toast)
+    if (!payload) return
 
     deps.saving.value = true
     try {
-      const created = await createAppointment({
-        employeeId: deps.form.employeeId,
-        clientId: deps.form.clientId,
-        startTime: toLocalDateTimeISO(deps.form.startTime),
-        endTime: toLocalDateTimeISO(deps.form.endTime),
-        notes: deps.form.notes.trim() || undefined,
-      })
+      const created = await createAppointment(payload)
       deps.totalRecords.value += 1
       deps.appointments.value = [created, ...deps.appointments.value].slice(0, deps.lazyParams.value.rows)
       if (deps.viewMode.value === 'timetable') {
@@ -88,6 +112,7 @@ export function useAppointmentMutations(deps: {
         detail: `${created.clientName} with ${created.employeeName} scheduled.`,
       })
       deps.dialogVisible.value = false
+      resetAppointmentForm(deps.form)
     } catch (err: unknown) {
       deps.toast.add({
         severity: 'error',
@@ -109,51 +134,21 @@ export function useAppointmentMutations(deps: {
       return
     }
     if (deps.editingAppointmentId.value == null) return
-    if (deps.editForm.employeeId == null) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Doctor is required.' })
-      return
-    }
-    if (deps.editForm.clientId == null) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Patient is required.' })
-      return
-    }
-    if (!deps.editForm.startTime) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'Start time is required.' })
-      return
-    }
-    if (!deps.editForm.endTime) {
-      deps.toast.add({ severity: 'warn', summary: 'Validation', detail: 'End time is required.' })
-      return
-    }
-    if (deps.editForm.endTime.getTime() <= deps.editForm.startTime.getTime()) {
-      deps.toast.add({
-        severity: 'warn',
-        summary: 'Validation',
-        detail: 'End time must be after start time.',
-      })
-      return
-    }
+    const payload = validateAppointmentForm(deps.editForm, deps.toast)
+    if (!payload) return
 
     deps.saving.value = true
     try {
-      const updated = await updateAppointment(deps.editingAppointmentId.value, {
-        employeeId: deps.editForm.employeeId,
-        clientId: deps.editForm.clientId,
-        startTime: toLocalDateTimeISO(deps.editForm.startTime),
-        endTime: toLocalDateTimeISO(deps.editForm.endTime),
-        notes: deps.editForm.notes.trim() || undefined,
-      })
-      const idx = deps.appointments.value.findIndex((a) => a.id === updated.id)
-      if (idx >= 0) deps.appointments.value[idx] = updated
-      const tidx = deps.timetableAppointments.value.findIndex((a) => a.id === updated.id)
-      if (tidx >= 0) deps.timetableAppointments.value[tidx] = updated
-      deps.viewingAppointment.value = updated
+      const updated = await updateAppointment(deps.editingAppointmentId.value, payload)
+      deps.appointments.value = upsertById(deps.appointments.value, updated)
+      deps.timetableAppointments.value = upsertById(deps.timetableAppointments.value, updated)
+      deps.viewingAppointment.value = null
+      deps.editingAppointmentId.value = null
       deps.toast.add({
         severity: 'success',
         summary: 'Appointment updated',
         detail: `${updated.clientName} with ${updated.employeeName} rescheduled.`,
       })
-      deps.viewingAppointment.value = null
     } catch (err: unknown) {
       deps.toast.add({
         severity: 'error',
@@ -176,10 +171,8 @@ export function useAppointmentMutations(deps: {
     }
     try {
       const updated = await updateAppointmentStatus(apt.id, status)
-      const idx = deps.appointments.value.findIndex((a) => a.id === updated.id)
-      if (idx >= 0) deps.appointments.value[idx] = updated
-      const tidx = deps.timetableAppointments.value.findIndex((a) => a.id === updated.id)
-      if (tidx >= 0) deps.timetableAppointments.value[tidx] = updated
+      deps.appointments.value = upsertById(deps.appointments.value, updated)
+      deps.timetableAppointments.value = upsertById(deps.timetableAppointments.value, updated)
       if (deps.viewingAppointment.value?.id === updated.id) deps.viewingAppointment.value = updated
       deps.toast.add({
         severity: 'success',

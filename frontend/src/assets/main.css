@@ -59,6 +59,23 @@ h1 {
   max-width: 400px;
 }
 
+.mc-filters-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mc-filter-select,
+.mc-filter-date {
+  min-width: 140px;
+}
+
+.mc-toggle-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
 .mc-row-actions {
   display: flex;
   gap: 0.25rem;
@@ -111,6 +128,20 @@ h1 {
 .mc-field-hint {
   margin: 0;
   font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+
+.mc-duration-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.mc-detail-actions {
+  margin-top: 0.5rem;
+}
+
+.mc-text-muted {
   color: var(--p-text-muted-color);
 }
 

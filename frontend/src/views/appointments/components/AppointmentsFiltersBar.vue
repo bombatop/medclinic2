@@ -5,17 +5,17 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
-import type { Appointment } from '@/api/appointments'
 import { STATUS_FILTER_OPTIONS } from '@/views/appointments/appointmentConstants'
 import type {
+  AppointmentStatus,
   DoctorSelectOption,
   PatientSelectOption,
-} from '@/views/appointments/composables/useDoctorPatientOptions'
+} from '@/views/appointments/appointmentTypes'
 
 defineProps<{
   filterDoctor: number | null
   filterPatient: number | null
-  filterStatus: Appointment['status'] | null
+  filterStatus: AppointmentStatus | null
   filterDateFrom: Date | null
   filterDateTo: Date | null
   search: string
@@ -28,7 +28,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: 'update:filterDoctor', value: number | null): void
   (e: 'update:filterPatient', value: number | null): void
-  (e: 'update:filterStatus', value: Appointment['status'] | null): void
+  (e: 'update:filterStatus', value: AppointmentStatus | null): void
   (e: 'update:filterDateFrom', value: Date | null): void
   (e: 'update:filterDateTo', value: Date | null): void
   (e: 'update:search', value: string): void
@@ -45,7 +45,7 @@ function dateOnlyFromPicker(v: unknown): Date | null {
 }
 
 function onFilterStatusUpdate(v: unknown) {
-  emit('update:filterStatus', (v as Appointment['status'] | null) ?? null)
+  emit('update:filterStatus', (v as AppointmentStatus | null) ?? null)
 }
 
 function setTimetableScope(scope: 'day' | 'week') {
@@ -57,7 +57,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
 </script>
 
 <template>
-  <div class="filters">
+  <div class="mc-filters-bar">
     <Select
       :model-value="filterDoctor"
       :options="doctorOptions"
@@ -65,7 +65,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       option-value="value"
       placeholder="Doctor"
       show-clear
-      class="filter-select"
+      class="mc-filter-select"
       @update:model-value="emit('update:filterDoctor', $event)"
     />
     <Select
@@ -75,7 +75,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       option-value="value"
       placeholder="Patient"
       show-clear
-      class="filter-select"
+      class="mc-filter-select"
       @update:model-value="emit('update:filterPatient', $event)"
     />
     <DatePicker
@@ -83,7 +83,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       placeholder="From date"
       :show-time="false"
       show-clear
-      class="filter-date"
+      class="mc-filter-date"
       @update:model-value="emit('update:filterDateFrom', dateOnlyFromPicker($event))"
     />
     <DatePicker
@@ -92,7 +92,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       :show-time="false"
       :show-clear="!(viewMode === 'timetable' && timetableScope === 'day')"
       :disabled="viewMode === 'timetable' && timetableScope === 'day'"
-      class="filter-date"
+      class="mc-filter-date"
       @update:model-value="emit('update:filterDateTo', dateOnlyFromPicker($event))"
     />
     <Select
@@ -102,7 +102,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       option-value="value"
       placeholder="Status"
       show-clear
-      class="filter-select"
+      class="mc-filter-select"
       @update:model-value="onFilterStatusUpdate($event)"
     />
     <IconField class="mc-search-field">
@@ -113,7 +113,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
         @update:model-value="emit('update:search', String($event ?? ''))"
       />
     </IconField>
-    <div class="view-toggle">
+    <div class="mc-toggle-group">
       <Button
         label="Table"
         :severity="viewMode === 'table' ? 'primary' : 'secondary'"
@@ -127,7 +127,7 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
         @click="emit('update:viewMode', 'timetable')"
       />
     </div>
-    <div v-if="viewMode === 'timetable'" class="scope-toggle">
+    <div v-if="viewMode === 'timetable'" class="mc-toggle-group">
       <Button
         label="Day"
         :severity="timetableScope === 'day' ? 'primary' : 'secondary'"
@@ -143,37 +143,3 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
     </div>
   </div>
 </template>
-
-<style scoped>
-.filters {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.mc-search-field :deep(.p-inputtext) {
-  width: 100%;
-  max-width: 300px;
-}
-
-.filter-select {
-  min-width: 140px;
-}
-
-.filter-date {
-  min-width: 140px;
-}
-
-.view-toggle,
-.scope-toggle {
-  display: flex;
-  gap: 0.25rem;
-}
-
-@media (max-width: 768px) {
-  .mc-search-field :deep(.p-inputtext) {
-    max-width: none;
-  }
-}
-</style>

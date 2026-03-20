@@ -1,14 +1,19 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import type { Appointment, AppointmentFilters } from '@/api/appointments'
-import { toLocalDateTimeISO } from '@/utils/formatting'
+import type { AppointmentFilters } from '@/api/appointments'
+import { toLocalDayEndISO, toLocalDayStartISO } from '@/utils/formatting'
+import type {
+  AppointmentStatus,
+  AppointmentTimetableScope,
+  AppointmentViewMode,
+} from '@/views/appointments/appointmentTypes'
 
 export function useAppointmentFilters(
-  viewMode: Ref<'table' | 'timetable'>,
-  timetableScope: Ref<'day' | 'week'>,
+  viewMode: Ref<AppointmentViewMode>,
+  timetableScope: Ref<AppointmentTimetableScope>,
 ) {
   const filterDoctor = ref<number | null>(null)
   const filterPatient = ref<number | null>(null)
-  const filterStatus = ref<Appointment['status'] | null>(null)
+  const filterStatus = ref<AppointmentStatus | null>(null)
   const filterDateFrom = ref<Date | null>(null)
   const filterDateTo = ref<Date | null>(null)
 
@@ -27,18 +32,8 @@ export function useAppointmentFilters(
   }
 
   const activeFilters = computed((): AppointmentFilters => {
-    let from: string | undefined
-    let to: string | undefined
-    if (filterDateFrom.value) {
-      const d = new Date(filterDateFrom.value)
-      d.setHours(0, 0, 0, 0)
-      from = toLocalDateTimeISO(d)
-    }
-    if (filterDateTo.value) {
-      const d = new Date(filterDateTo.value)
-      d.setHours(23, 59, 59, 999)
-      to = toLocalDateTimeISO(d)
-    }
+    const from = filterDateFrom.value ? toLocalDayStartISO(filterDateFrom.value) : undefined
+    const to = filterDateTo.value ? toLocalDayEndISO(filterDateTo.value) : undefined
     return {
       employeeId: filterDoctor.value ?? undefined,
       clientId: filterPatient.value ?? undefined,

@@ -2,18 +2,6 @@ import { watch, type Ref } from 'vue'
 import type { DataTableSortEvent } from 'primevue/datatable'
 import { useDebounceFn, DEFAULT_DEBOUNCE_MS } from '@/composables/useDebounceFn'
 
-/** Map PrimeVue DataTable @sort event to lazy table state (sortField may be typed as string | function). */
-export function lazySortStateFromDataTable(
-  event: DataTableSortEvent,
-): { sortField: string | null; sortOrder: number } {
-  const raw = event.sortField
-  const sortField = typeof raw === 'string' ? raw : null
-  return {
-    sortField,
-    sortOrder: event.sortOrder ?? 0,
-  }
-}
-
 export type LazyTableState = {
   first: number
   rows: number
@@ -29,6 +17,15 @@ export function pageFromLazyFirst(first: number, rows: number): number {
 export function springSortFromPrime(sortField: string | null, sortOrder: number): string | undefined {
   if (sortField == null || sortOrder === 0) return undefined
   return `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+}
+
+export function lazySortStateFromDataTable(
+  event: DataTableSortEvent,
+): Pick<LazyTableState, 'sortField' | 'sortOrder'> {
+  return {
+    sortField: typeof event.sortField === 'string' ? event.sortField : null,
+    sortOrder: event.sortOrder === 1 || event.sortOrder === -1 ? event.sortOrder : 0,
+  }
 }
 
 /**

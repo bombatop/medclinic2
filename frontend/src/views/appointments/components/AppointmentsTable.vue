@@ -1,32 +1,35 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { Appointment } from '@/api/appointments'
 import { appointmentStatusSeverity, formatDate, formatTime } from '@/utils/formatting'
-import type { DataTableSortEvent } from 'primevue/datatable'
+import type { LazyTableState } from '@/composables/useLazyPrimeTable'
+import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
-defineProps<{
+const props = defineProps<{
   rows: Appointment[]
   totalRecords: number
   loading: boolean
-  lazyParams: {
-    first: number
-    rows: number
-    sortField: string | null
-    sortOrder: number
-  }
+  lazyParams: LazyTableState
   canUpdateAppointments: boolean
   canUpdateAppointmentStatus: boolean
 }>()
 
 const emit = defineEmits<{
-  page: [event: { first: number; rows: number }]
+  page: [event: DataTablePageEvent]
   sort: [event: DataTableSortEvent]
   edit: [appointment: Appointment]
   'change-status': [appointment: Appointment, status: Appointment['status']]
 }>()
+
+const canShowStatusActions = computed(
+  () =>
+    props.canUpdateAppointmentStatus &&
+    props.rows.some((a) => a.status !== 'CANCELLED' && a.status !== 'COMPLETED'),
+)
 </script>
 
 <template>
@@ -93,10 +96,7 @@ const emit = defineEmits<{
       </Column>
 
       <Column
-        v-if="
-          canUpdateAppointmentStatus &&
-          rows.some((a) => a.status !== 'CANCELLED' && a.status !== 'COMPLETED')
-        "
+        v-if="canShowStatusActions"
         style="width: 10rem"
       >
         <template #body="{ data }">
@@ -130,15 +130,9 @@ const emit = defineEmits<{
               @click="emit('change-status', data, 'CANCELLED')"
             />
           </div>
-          <span v-else class="text-muted">—</span>
+          <span v-else class="mc-text-muted">—</span>
         </template>
       </Column>
     </DataTable>
   </div>
 </template>
-
-<style scoped>
-.text-muted {
-  color: var(--p-text-muted-color);
-}
-</style>
