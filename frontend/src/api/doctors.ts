@@ -75,12 +75,17 @@ export function getAuthUser(userId: number): Promise<AuthUser> {
   return http.get<AuthUser>(`/auth/auth/users/${userId}`).then((res) => res.data)
 }
 
-export function getDoctors(params?: PageParams): Promise<PageResponse<Doctor>> {
+export interface ListParams extends PageParams {
+  search?: string
+}
+
+export function getDoctors(params?: ListParams): Promise<PageResponse<Doctor>> {
   const query: Record<string, unknown> = {
     page: params?.page ?? 0,
     size: params?.size ?? 20,
   }
   if (params?.sort != null) query.sort = params.sort
+  if (params?.search?.trim()) query.search = params.search.trim()
   return http.get<PageResponse<Doctor>>('/main/employees', { params: query }).then((res) => res.data)
 }
 

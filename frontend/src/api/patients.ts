@@ -53,12 +53,17 @@ export interface Appointment {
   createdAt: string
 }
 
-export function getPatients(params?: PageParams): Promise<PageResponse<Patient>> {
+export interface ListParams extends PageParams {
+  search?: string
+}
+
+export function getPatients(params?: ListParams): Promise<PageResponse<Patient>> {
   const query: Record<string, unknown> = {
     page: params?.page ?? 0,
     size: params?.size ?? 20,
   }
   if (params?.sort != null) query.sort = params.sort
+  if (params?.search?.trim()) query.search = params.search.trim()
   return http.get<PageResponse<Patient>>('/main/clients', { params: query }).then((res) => res.data)
 }
 

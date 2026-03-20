@@ -29,8 +29,9 @@ public class ClientController {
 
     @GetMapping
     public ResponseEntity<PageResponse<ClientResponse>> getAllClients(
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(PageResponse.from(clientService.getAllClients(pageable)));
+        return ResponseEntity.ok(PageResponse.from(clientService.getAllClients(search, pageable)));
     }
 
     @GetMapping("/{id}")

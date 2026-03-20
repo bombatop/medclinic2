@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import {
   createPatient,
   deletePatient,
@@ -53,15 +54,6 @@ const form = reactive({
   notes: '',
 })
 
-const filteredPatients = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return patients.value
-  return patients.value.filter((p) => {
-    const haystack = `${p.firstName} ${p.lastName} ${p.phone} ${p.email ?? ''}`.toLowerCase()
-    return haystack.includes(q)
-  })
-})
-
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
@@ -77,7 +69,12 @@ async function loadPatients() {
       sortField != null && sortOrder !== 0
         ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
         : undefined
-    const res = await getPatients({ page, size: lazyParams.value.rows, sort })
+    const res = await getPatients({
+      page,
+      size: lazyParams.value.rows,
+      sort,
+      search: search.value.trim() || undefined,
+    })
     patients.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -102,12 +99,20 @@ function onPage(event: { first: number; rows: number }) {
 
 function onSort(event: { sortField?: string; sortOrder?: number }) {
   lazyParams.value = {
-    ...lazyParams.value,
+    first: 0,
+    rows: lazyParams.value.rows,
     sortField: event.sortField ?? null,
     sortOrder: event.sortOrder ?? 0,
   }
   void loadPatients()
 }
+
+const debouncedLoadPatients = useDebounceFn(() => loadPatients(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadPatients()
+})
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -280,7 +285,7 @@ onMounted(() => {
 
     <DataTable
       v-model:expandedRows="expandedRows"
-      :value="filteredPatients"
+      :value="patients"
       :loading="loading"
       :lazy="true"
       :totalRecords="totalRecords"
@@ -308,9 +313,9 @@ onMounted(() => {
         </template>
       </Column>
 
-      <Column field="phone" header="Phone" />
+      <Column field="phone" header="Phone" sortable sortField="phone" />
 
-      <Column field="email" header="Email">
+      <Column field="email" header="Email" sortable sortField="email">
         <template #body="{ data }">
           {{ data.email || '—' }}
         </template>

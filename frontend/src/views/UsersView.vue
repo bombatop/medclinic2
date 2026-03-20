@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import {
   activateUser,
   createUser,
@@ -34,7 +35,12 @@ const totalRecords = ref(0)
 const loading = ref(true)
 const loadingRoles = ref(false)
 const search = ref('')
-const lazyParams = ref({ first: 0, rows: 10 })
+const lazyParams = ref({
+  first: 0,
+  rows: 10,
+  sortField: 'lastName' as string | null,
+  sortOrder: 1 as number,
+})
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -61,16 +67,6 @@ const editForm = reactive({
   roles: [] as string[],
 })
 
-const filteredUsers = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return users.value
-  return users.value.filter((u) => {
-    const haystack =
-      `${u.username} ${u.firstName} ${u.lastName} ${u.email}`.toLowerCase()
-    return haystack.includes(q)
-  })
-})
-
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
   return apiErr.response?.data?.message ?? apiErr.message ?? fallback
@@ -80,7 +76,18 @@ async function loadUsers() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getUsers({ page, size: lazyParams.value.rows })
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
+    const res = await getUsers({
+      page,
+      size: lazyParams.value.rows,
+      sort,
+      search: search.value.trim() || undefined,
+    })
     users.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -115,9 +122,30 @@ async function loadRoleOptions() {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
   void loadUsers()
 }
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
+  void loadUsers()
+}
+
+const debouncedLoadUsers = useDebounceFn(() => loadUsers(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadUsers()
+})
 
 function openCreateDialog() {
   dialogMode.value = 'create'
@@ -306,7 +334,7 @@ onMounted(() => {
     </IconField>
 
     <DataTable
-      :value="filteredUsers"
+      :value="users"
       :loading="loading"
       :lazy="true"
       :totalRecords="totalRecords"
@@ -314,15 +342,18 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[10, 25, 50]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
       removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No users found.</div>
       </template>
 
-      <Column field="username" header="Username" sortable />
+      <Column field="username" header="Username" sortable sortField="username" />
 
       <Column header="Name" sortable sortField="lastName">
         <template #body="{ data }">

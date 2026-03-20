@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { createRole, deleteRole, getRoles, updateRole, type Role } from '@/api/rbac'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
@@ -8,6 +9,8 @@ import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
 import Dialog from 'primevue/dialog'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
@@ -19,7 +22,13 @@ const roles = ref<Role[]>([])
 const loading = ref(true)
 const saving = ref(false)
 const totalRecords = ref(0)
-const lazyParams = ref({ first: 0, rows: 20 })
+const search = ref('')
+const lazyParams = ref({
+  first: 0,
+  rows: 20,
+  sortField: 'code' as string | null,
+  sortOrder: 1 as number,
+})
 
 const dialogVisible = ref(false)
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -41,7 +50,18 @@ async function loadRoles() {
   loading.value = true
   try {
     const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const res = await getRoles({ page, size: lazyParams.value.rows })
+    const sortField = lazyParams.value.sortField
+    const sortOrder = lazyParams.value.sortOrder
+    const sort =
+      sortField != null && sortOrder !== 0
+        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
+        : undefined
+    const res = await getRoles({
+      page,
+      size: lazyParams.value.rows,
+      sort,
+      search: search.value.trim() || undefined,
+    })
     roles.value = res.content
     totalRecords.value = res.totalElements
   } catch (err: unknown) {
@@ -131,9 +151,30 @@ async function performDelete(role: Role) {
 }
 
 function onPage(event: { first: number; rows: number }) {
-  lazyParams.value = { first: event.first, rows: event.rows }
+  lazyParams.value = {
+    ...lazyParams.value,
+    first: event.first,
+    rows: event.rows,
+  }
   void loadRoles()
 }
+
+function onSort(event: { sortField?: string; sortOrder?: number }) {
+  lazyParams.value = {
+    first: 0,
+    rows: lazyParams.value.rows,
+    sortField: event.sortField ?? null,
+    sortOrder: event.sortOrder ?? 0,
+  }
+  void loadRoles()
+}
+
+const debouncedLoadRoles = useDebounceFn(() => loadRoles(), 300)
+
+watch(search, () => {
+  lazyParams.value.first = 0
+  debouncedLoadRoles()
+})
 
 onMounted(() => {
   void loadRoles()
@@ -152,6 +193,11 @@ onMounted(() => {
       <Button label="Add Role" icon="pi pi-plus" @click="openCreateDialog" />
     </div>
 
+    <IconField class="search-field">
+      <InputIcon class="pi pi-search" />
+      <InputText v-model="search" placeholder="Search by code, name, or description..." />
+    </IconField>
+
     <DataTable
       :value="roles"
       :loading="loading"
@@ -161,21 +207,25 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[20, 50, 100]"
+      :sortField="lazyParams.sortField"
+      :sortOrder="lazyParams.sortOrder"
       stripedRows
+      removableSort
       @page="onPage"
+      @sort="onSort"
     >
       <template #empty>
         <div class="table-empty">No roles found.</div>
       </template>
 
-      <Column field="code" header="Code" />
-      <Column field="name" header="Name" />
+      <Column field="code" header="Code" sortable sortField="code" />
+      <Column field="name" header="Name" sortable sortField="name" />
       <Column header="Description">
         <template #body="{ data }">
           {{ data.description || '-' }}
         </template>
       </Column>
-      <Column header="Status">
+      <Column header="Status" sortable sortField="active">
         <template #body="{ data }">
           <Tag :value="data.active ? 'Active' : 'Inactive'" :severity="data.active ? 'success' : 'danger'" />
         </template>
@@ -257,6 +307,11 @@ onMounted(() => {
 
 .page-subtitle {
   color: var(--p-text-muted-color);
+}
+
+.search-field :deep(.p-inputtext) {
+  width: 100%;
+  max-width: 400px;
 }
 
 .row-actions {

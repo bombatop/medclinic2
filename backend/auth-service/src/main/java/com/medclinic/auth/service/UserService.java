@@ -18,6 +18,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -69,8 +70,20 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserResponse> getAllUsers(Pageable pageable) {
-        return userRepository.findAll(pageable).map(UserResponse::from);
+    public Page<UserResponse> getAllUsers(String search, Pageable pageable) {
+        Specification<User> spec = (root, query, cb) -> {
+            if (search == null || search.isBlank()) {
+                return cb.conjunction();
+            }
+            String pattern = "%" + search.toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("username")), pattern),
+                    cb.like(cb.lower(root.get("firstName")), pattern),
+                    cb.like(cb.lower(root.get("lastName")), pattern),
+                    cb.like(cb.lower(root.get("email")), pattern)
+            );
+        };
+        return userRepository.findAll(spec, pageable).map(UserResponse::from);
     }
 
     @Transactional(readOnly = true)
