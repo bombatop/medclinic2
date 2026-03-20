@@ -1,4 +1,4 @@
-import { ref, type ComputedRef } from 'vue'
+import { onBeforeUnmount, ref, type ComputedRef } from 'vue'
 import type { LazyTableState } from '@/composables/useLazyPrimeTable'
 import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import {
@@ -8,6 +8,7 @@ import {
 } from '@/composables/useLazyPrimeTable'
 import { getAppointments, type Appointment, type AppointmentFilters } from '@/api/appointments'
 import { getApiErrorMessage } from '@/utils/apiError'
+import { isCanceledError } from '@/utils/isCanceledError'
 import type { ToastServiceMethods } from 'primevue/toastservice'
 
 export function useAppointmentTableLoad(
@@ -24,8 +25,12 @@ export function useAppointmentTableLoad(
     sortOrder: -1,
   })
   let latestRequestId = 0
+  let abortController: AbortController | null = null
 
   async function loadAppointments() {
+    abortController?.abort()
+    abortController = new AbortController()
+    const signal = abortController.signal
     const requestId = ++latestRequestId
     loading.value = true
     try {
@@ -42,11 +47,13 @@ export function useAppointmentTableLoad(
       const res = await getAppointments(
         { page, size: lazyParams.value.rows, sort },
         activeFilters.value,
+        { signal },
       )
       if (requestId !== latestRequestId) return
       appointments.value = res.content
       totalRecords.value = res.totalElements
     } catch (err: unknown) {
+      if (isCanceledError(err)) return
       if (requestId !== latestRequestId) return
       toast.add({
         severity: 'error',
@@ -59,6 +66,10 @@ export function useAppointmentTableLoad(
       }
     }
   }
+
+  onBeforeUnmount(() => {
+    abortController?.abort()
+  })
 
   function onPage(event: DataTablePageEvent) {
     lazyParams.value = {

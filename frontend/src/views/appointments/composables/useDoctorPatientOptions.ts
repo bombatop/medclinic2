@@ -1,14 +1,14 @@
-import { computed, ref } from 'vue'
-import { getDoctors, type Doctor } from '@/api/doctors'
-import { getPatients, type Patient } from '@/api/patients'
+import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
+import { useReferenceDataStore } from '@/stores/referenceData'
 import type {
   DoctorSelectOption,
   PatientSelectOption,
 } from '@/views/appointments/appointmentTypes'
 
 export function useDoctorPatientOptions() {
-  const doctors = ref<Doctor[]>([])
-  const patients = ref<Patient[]>([])
+  const store = useReferenceDataStore()
+  const { doctors, patients } = storeToRefs(store)
 
   const doctorOptions = computed((): DoctorSelectOption[] =>
     doctors.value
@@ -26,18 +26,8 @@ export function useDoctorPatientOptions() {
     })),
   )
 
-  async function loadDoctorsAndPatients() {
-    try {
-      const [docRes, patRes] = await Promise.all([
-        getDoctors({ page: 0, size: 500 }),
-        getPatients({ page: 0, size: 500 }),
-      ])
-      doctors.value = docRes.content
-      patients.value = patRes.content
-    } catch {
-      doctors.value = []
-      patients.value = []
-    }
+  function loadDoctorsAndPatients(): Promise<void> {
+    return store.ensureDoctorsPatients()
   }
 
   return {

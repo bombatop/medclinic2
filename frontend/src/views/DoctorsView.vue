@@ -8,6 +8,7 @@ import {
   useDebouncedSearchReload,
 } from '@/composables/useLazyPrimeTable'
 import { useAuthStore } from '@/stores/auth'
+import { useReferenceDataStore } from '@/stores/referenceData'
 import {
   activateDoctor,
   createEmployeeProfile,
@@ -42,6 +43,7 @@ import Tag from 'primevue/tag'
 const toast = useToast()
 const confirm = useConfirm()
 const authStore = useAuthStore()
+const referenceDataStore = useReferenceDataStore()
 const canManageDoctors = computed(() => authStore.hasPermission('employee.manage'))
 
 const doctors = ref<Doctor[]>([])
@@ -238,6 +240,7 @@ async function saveDoctor() {
         summary: 'Profile linked',
         detail: `Clinic profile linked for ${created.firstName} ${created.lastName}.`,
       })
+      referenceDataStore.invalidateDoctorsPatients()
     } else {
       const updated = await updateDoctor(editingDoctorId.value!, {
         firstName: form.firstName.trim(),
@@ -251,6 +254,7 @@ async function saveDoctor() {
         summary: 'Profile updated',
         detail: `${updated.firstName} ${updated.lastName} saved.`,
       })
+      referenceDataStore.invalidateDoctorsPatients()
     }
 
     dialogVisible.value = false
@@ -292,6 +296,7 @@ async function performToggleActive(doctor: Doctor, action: 'activate' | 'deactiv
       summary: `Profile ${action}d`,
       detail: `${doctor.firstName} ${doctor.lastName} ${action}d.`,
     })
+    referenceDataStore.invalidateDoctorsPatients()
   } catch (err: unknown) {
     toast.add({
       severity: 'error',

@@ -2,6 +2,8 @@ import axios from 'axios'
 import { refresh } from './auth'
 import { useAuthStore } from '@/stores/auth'
 
+// Browser caching of authenticated /api JSON requires Cache-Control / ETag from the gateway and services.
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
   timeout: 10000,

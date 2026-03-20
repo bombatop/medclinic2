@@ -1,6 +1,7 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, onBeforeUnmount, ref, type ComputedRef, type Ref } from 'vue'
 import { getAppointments, type Appointment, type AppointmentFilters } from '@/api/appointments'
 import { getApiErrorMessage } from '@/utils/apiError'
+import { isCanceledError } from '@/utils/isCanceledError'
 import { TIME_SLOTS } from '@/views/appointments/appointmentConstants'
 import { filterByParticipantSearch } from '@/views/appointments/appointmentHelpers'
 import type { AppointmentViewMode } from '@/views/appointments/appointmentTypes'
@@ -33,6 +34,7 @@ export function useAppointmentTimetable(
   const timetableAppointments = ref<Appointment[]>([])
   const timetableLoading = ref(false)
   let latestRequestId = 0
+  let abortController: AbortController | null = null
 
   const timetableFrom = computed(() => {
     if (filterDateFrom.value) {
@@ -90,16 +92,21 @@ export function useAppointmentTimetable(
 
   async function loadTimetableAppointments() {
     if (viewMode.value !== 'timetable') return
+    abortController?.abort()
+    abortController = new AbortController()
+    const signal = abortController.signal
     const requestId = ++latestRequestId
     timetableLoading.value = true
     try {
       const res = await getAppointments(
         { page: 0, size: 500 },
         activeFilters.value,
+        { signal },
       )
       if (requestId !== latestRequestId) return
       timetableAppointments.value = res.content
     } catch (err: unknown) {
+      if (isCanceledError(err)) return
       if (requestId !== latestRequestId) return
       timetableAppointments.value = []
       toast.add({
@@ -113,6 +120,10 @@ export function useAppointmentTimetable(
       }
     }
   }
+
+  onBeforeUnmount(() => {
+    abortController?.abort()
+  })
 
   return {
     timetableAppointments,

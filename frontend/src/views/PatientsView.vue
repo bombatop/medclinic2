@@ -18,6 +18,7 @@ import {
 import { DIALOG_WIDTH_DEFAULT } from '@/constants/ui'
 import { getApiErrorMessage } from '@/utils/apiError'
 import { appointmentStatusSeverity, formatDate, formatTime } from '@/utils/formatting'
+import { useReferenceDataStore } from '@/stores/referenceData'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
@@ -35,6 +36,7 @@ import Textarea from 'primevue/textarea'
 
 const toast = useToast()
 const confirm = useConfirm()
+const referenceDataStore = useReferenceDataStore()
 
 const patients = ref<Patient[]>([])
 const totalRecords = ref(0)
@@ -169,6 +171,7 @@ async function savePatient() {
         summary: 'Patient created',
         detail: `${created.firstName} ${created.lastName} added.`,
       })
+      referenceDataStore.invalidateDoctorsPatients()
     } else {
       const updated = await updatePatient(editingPatientId.value!, trimmed)
       const idx = patients.value.findIndex((p) => p.id === updated.id)
@@ -178,6 +181,7 @@ async function savePatient() {
         summary: 'Patient updated',
         detail: `${updated.firstName} ${updated.lastName} saved.`,
       })
+      referenceDataStore.invalidateDoctorsPatients()
     }
 
     dialogVisible.value = false
@@ -215,6 +219,7 @@ async function performDelete(patient: Patient) {
       summary: 'Patient deleted',
       detail: `${patient.firstName} ${patient.lastName} removed.`,
     })
+    referenceDataStore.invalidateDoctorsPatients()
   } catch (err: unknown) {
     toast.add({
       severity: 'error',
