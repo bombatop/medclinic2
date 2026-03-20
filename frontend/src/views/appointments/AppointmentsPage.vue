@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import type { Appointment } from '@/api/appointments'
-import { useDebounceFn } from '@/composables/useDebounceFn'
+import { DEFAULT_DEBOUNCE_MS, useDebounceFn } from '@/composables/useDebounceFn'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import {
-  filterByParticipantSearch,
-  resetAppointmentForm,
-} from '@/views/appointments/appointmentHelpers'
+import { filterByParticipantSearch, resetAppointmentForm } from '@/views/appointments/appointmentHelpers'
 import { useAppointmentFilters } from '@/views/appointments/composables/useAppointmentFilters'
 import { useAppointmentForms } from '@/views/appointments/composables/useAppointmentForms'
 import { useAppointmentMutations } from '@/views/appointments/composables/useAppointmentMutations'
@@ -38,6 +35,16 @@ const {
   applyTimetableScopeToFilters,
 } = useAppointmentFilters(viewMode, timetableScope)
 
+const search = ref('')
+const debouncedParticipantSearch = ref('')
+const applyDebouncedParticipantSearch = useDebounceFn((q: string) => {
+  debouncedParticipantSearch.value = q
+}, DEFAULT_DEBOUNCE_MS)
+
+watch(search, (v) => {
+  applyDebouncedParticipantSearch(v)
+})
+
 const {
   appointments,
   totalRecords,
@@ -49,10 +56,8 @@ const {
   resetToFirstPage,
 } = useAppointmentTableLoad(activeFilters, toast)
 
-const search = ref('')
-
 const filteredAppointments = computed(() =>
-  filterByParticipantSearch(appointments.value, search.value.trim()),
+  filterByParticipantSearch(appointments.value, debouncedParticipantSearch.value.trim()),
 )
 
 const {
@@ -62,7 +67,14 @@ const {
   timeSlots,
   getAppointmentsForCell,
   loadTimetableAppointments,
-} = useAppointmentTimetable(activeFilters, viewMode, filterDateFrom, filterDateTo, search, toast)
+} = useAppointmentTimetable(
+  activeFilters,
+  viewMode,
+  filterDateFrom,
+  filterDateTo,
+  debouncedParticipantSearch,
+  toast,
+)
 
 function loadForCurrentView() {
   if (viewMode.value === 'timetable') void loadTimetableAppointments()
@@ -226,6 +238,7 @@ onMounted(() => {
     />
 
     <AppointmentCreateDialog
+      v-if="dialogVisible"
       v-model:visible="dialogVisible"
       v-model:form-end-time="formEndTimeModel"
       :form="form"

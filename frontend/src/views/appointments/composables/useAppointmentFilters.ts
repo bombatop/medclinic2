@@ -48,8 +48,17 @@ export function useAppointmentFilters(
   })
 
   watch(filterDateFrom, (from) => {
-    if (viewMode.value === 'timetable' && timetableScope.value === 'day') {
-      filterDateTo.value = from ? new Date(from) : null
+    if (viewMode.value !== 'timetable') return
+    if (!from) {
+      filterDateTo.value = null
+      return
+    }
+    if (timetableScope.value === 'day') {
+      filterDateTo.value = new Date(from)
+    } else {
+      const end = new Date(from)
+      end.setDate(end.getDate() + 7)
+      filterDateTo.value = end
     }
   })
 

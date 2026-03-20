@@ -27,16 +27,12 @@ export function useAppointmentTimetable(
   viewMode: Ref<AppointmentViewMode>,
   filterDateFrom: Ref<Date | null>,
   filterDateTo: Ref<Date | null>,
-  search: Ref<string>,
+  participantQueryDebounced: Ref<string>,
   toast: ToastServiceMethods,
 ) {
   const timetableAppointments = ref<Appointment[]>([])
   const timetableLoading = ref(false)
   let latestRequestId = 0
-
-  const filteredTimetableAppointments = computed(() =>
-    filterByParticipantSearch(timetableAppointments.value, search.value.trim()),
-  )
 
   const timetableFrom = computed(() => {
     if (filterDateFrom.value) {
@@ -71,6 +67,10 @@ export function useAppointmentTimetable(
     }
     return days
   })
+
+  const filteredTimetableAppointments = computed(() =>
+    filterByParticipantSearch(timetableAppointments.value, participantQueryDebounced.value.trim()),
+  )
 
   const appointmentsByCell = computed(() => {
     const map = new Map<string, Appointment[]>()

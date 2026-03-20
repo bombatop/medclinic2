@@ -90,8 +90,8 @@ const statusOptions = [...STATUS_FILTER_OPTIONS]
       :model-value="filterDateTo"
       placeholder="To date"
       :show-time="false"
-      :show-clear="!(viewMode === 'timetable' && timetableScope === 'day')"
-      :disabled="viewMode === 'timetable' && timetableScope === 'day'"
+      :show-clear="viewMode !== 'timetable'"
+      :disabled="viewMode === 'timetable'"
       class="mc-filter-date"
       @update:model-value="emit('update:filterDateTo', dateOnlyFromPicker($event))"
     />
