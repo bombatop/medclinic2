@@ -103,7 +103,7 @@ async function loadLinkUserOptions(searchQuery: string) {
   }
 }
 
-const debouncedLoadLinkUsers = useDebounceFn((q: string) => void loadLinkUserOptions(q), 300)
+const debouncedLoadLinkUsers = useDebounceFn((q: string) => void loadLinkUserOptions(q))
 
 function onLinkUserFilter(event: { value: string }) {
   debouncedLoadLinkUsers(event.value ?? '')
@@ -157,7 +157,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadDoctors()
 }
 
-const debouncedLoadDoctors = useDebounceFn(() => loadDoctors(), 300)
+const debouncedLoadDoctors = useDebounceFn(() => loadDoctors())
 
 watch(search, () => {
   lazyParams.value.first = 0

@@ -169,7 +169,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadRoles()
 }
 
-const debouncedLoadRoles = useDebounceFn(() => loadRoles(), 300)
+const debouncedLoadRoles = useDebounceFn(() => loadRoles())
 
 watch(search, () => {
   lazyParams.value.first = 0

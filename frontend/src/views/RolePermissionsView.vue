@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useDebounceFn } from '@/composables/useDebounceFn'
 import {
   getPermissions,
   getRolePermissions,
@@ -10,7 +11,12 @@ import {
 } from '@/api/rbac'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
-import MultiSelect from 'primevue/multiselect'
+import Checkbox from 'primevue/checkbox'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
 import Select from 'primevue/select'
 
 const toast = useToast()
@@ -21,19 +27,43 @@ const roles = ref<Role[]>([])
 const permissions = ref<Permission[]>([])
 const selectedRoleId = ref<number | null>(null)
 const selectedPermissionCodes = ref<string[]>([])
+const permissionSearch = ref('')
+const debouncedPermissionQuery = ref('')
 
-const permissionOptions = computed(() =>
-  permissions.value.map((permission) => ({
-    label: `${permission.code} - ${permission.name}`,
-    value: permission.code,
-  })),
-)
+const applyDebouncedPermissionQuery = useDebounceFn((query: unknown) => {
+  debouncedPermissionQuery.value = typeof query === 'string' ? query : ''
+})
+
+watch(permissionSearch, (v) => {
+  applyDebouncedPermissionQuery(v)
+})
 
 const roleOptions = computed(() =>
   roles.value
     .filter((role) => role.active)
     .map((role) => ({ label: `${role.name} (${role.code})`, value: role.id })),
 )
+
+const filteredPermissions = computed(() => {
+  const q = debouncedPermissionQuery.value.trim().toLowerCase()
+  if (!q) return permissions.value
+  return permissions.value.filter((p) => {
+    const hay = `${p.code} ${p.name} ${p.description ?? ''}`.toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+const permissionsTableDisabled = computed(() => loading.value || saving.value || !selectedRoleId.value)
+
+function togglePermission(code: string, granted: boolean) {
+  if (granted) {
+    if (!selectedPermissionCodes.value.includes(code)) {
+      selectedPermissionCodes.value = [...selectedPermissionCodes.value, code]
+    }
+  } else {
+    selectedPermissionCodes.value = selectedPermissionCodes.value.filter((c) => c !== code)
+  }
+}
 
 function getErrorMessage(err: unknown, fallback: string): string {
   const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
@@ -134,20 +164,62 @@ watch(selectedRoleId, () => {
         />
       </div>
 
-      <div class="field">
-        <label for="permissions-select">Permissions</label>
-        <MultiSelect
-          id="permissions-select"
-          v-model="selectedPermissionCodes"
-          :options="permissionOptions"
-          option-label="label"
-          option-value="value"
-          display="chip"
-          filter
-          :disabled="loading || saving || !selectedRoleId"
-          placeholder="Select permissions"
-          class="w-full"
-        />
+      <div class="field permissions-table-block">
+        <label for="permission-filter">Permissions</label>
+        <IconField class="search-field">
+          <InputIcon class="pi pi-search" />
+          <InputText
+            id="permission-filter"
+            v-model="permissionSearch"
+            placeholder="Filter by code or name..."
+            :disabled="loading"
+          />
+        </IconField>
+
+        <DataTable
+          :value="filteredPermissions"
+          :loading="loading"
+          dataKey="id"
+          stripedRows
+          sort-field="code"
+          :sort-order="1"
+          removable-sort
+          class="permissions-table"
+        >
+          <template #empty>
+            <div class="table-empty">
+              <template v-if="!selectedRoleId && !loading">Select a role to assign permissions.</template>
+              <template v-else-if="debouncedPermissionQuery.trim() && !filteredPermissions.length">
+                No permissions match your filter.
+              </template>
+              <template v-else>No permissions found.</template>
+            </div>
+          </template>
+
+          <Column field="code" header="Code" sortable />
+          <Column field="name" header="Name" sortable>
+            <template #body="{ data }">
+              <span class="name-cell">
+                {{ data.name }}
+                <i
+                  v-if="data.description?.trim()"
+                  class="pi pi-info-circle name-desc-icon"
+                  v-tooltip.top="data.description"
+                />
+              </span>
+            </template>
+          </Column>
+          <Column header="Granted" style="width: 8rem">
+            <template #body="{ data }">
+              <Checkbox
+                :model-value="selectedPermissionCodes.includes(data.code)"
+                binary
+                :disabled="permissionsTableDisabled"
+                @update:model-value="(v) => togglePermission(data.code, !!v)"
+              />
+            </template>
+          </Column>
+        </DataTable>
       </div>
     </div>
   </div>
@@ -185,8 +257,37 @@ watch(selectedRoleId, () => {
   gap: 0.375rem;
 }
 
-.field :deep(.p-select),
-.field :deep(.p-multiselect) {
+.field :deep(.p-select) {
   width: 100%;
+}
+
+.permissions-table-block {
+  gap: 0.75rem;
+}
+
+.search-field :deep(.p-inputtext) {
+  width: 100%;
+}
+
+.permissions-table {
+  width: 100%;
+}
+
+.table-empty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--p-text-muted-color);
+}
+
+.name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.name-desc-icon {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+  cursor: help;
 }
 </style>

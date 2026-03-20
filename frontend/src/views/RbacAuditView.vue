@@ -117,6 +117,8 @@ onMounted(() => {
     </div>
 
     <DataTable
+      class="audit-table"
+      :pt="{ tableContainer: { class: 'audit-datatable-scroll' } }"
       :value="rows"
       :loading="loading"
       :lazy="true"
@@ -180,4 +182,24 @@ onMounted(() => {
   padding: 2rem;
   color: var(--p-text-muted-color);
 }
+
+/* Long details: scroll the grid only (not the paginator); keep each cell on one line. */
+.audit-datatable-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.audit-table :deep(table) {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.audit-table :deep(thead th),
+.audit-table :deep(tbody td) {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
 </style>

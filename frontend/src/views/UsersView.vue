@@ -158,7 +158,7 @@ function onSort(event: { sortField?: string; sortOrder?: number }) {
   void loadUsers()
 }
 
-const debouncedLoadUsers = useDebounceFn(() => loadUsers(), 300)
+const debouncedLoadUsers = useDebounceFn(() => loadUsers())
 
 watch(search, () => {
   lazyParams.value.first = 0

@@ -160,15 +160,27 @@ public class RbacAdminService {
             throw new ResourceNotFoundException("Permissions not found: " + String.join(", ", missingCodes));
         }
 
-        List<String> beforeCodes = rolePermissionRepository.findByRole(role).stream()
+        List<RolePermission> existingLinks = rolePermissionRepository.findByRole(role);
+        List<String> beforeCodes = existingLinks.stream()
                 .map(RolePermission::getPermission)
                 .map(PermissionEntity::getCode)
                 .sorted()
                 .toList();
 
-        rolePermissionRepository.deleteByRole(role);
+        // deleteAll(managed rows) + flush avoids stale RolePermission instances in the persistence
+        // context after JPQL delete, which can cause duplicate uk_role_permission on insert.
+        if (!existingLinks.isEmpty()) {
+            rolePermissionRepository.deleteAll(existingLinks);
+            rolePermissionRepository.flush();
+        }
+
         if (!permissions.isEmpty()) {
-            List<RolePermission> mappings = permissions.stream()
+            List<PermissionEntity> uniquePermissions = permissions.stream()
+                    .collect(Collectors.toMap(PermissionEntity::getId, p -> p, (a, b) -> a, LinkedHashMap::new))
+                    .values()
+                    .stream()
+                    .toList();
+            List<RolePermission> mappings = uniquePermissions.stream()
                     .map(permission -> RolePermission.builder().role(role).permission(permission).build())
                     .toList();
             rolePermissionRepository.saveAll(mappings);
