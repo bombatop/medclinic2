@@ -12,15 +12,9 @@ After any change to frontend code, rebuild and restart: `docker compose build fr
 
 The **running** `medclinic-frontend` container is **Nginx only** — there is no `node`/`npm` inside it. The Node toolchain exists only in the image **build** stage ([`frontend/Dockerfile`](frontend/Dockerfile): `FROM node:22-alpine AS build`).
 
-**Checks (typecheck / lint) without a local Node install** — use the build stage, from repo root:
+**Docker image build is gated:** `docker compose build frontend` runs **`npm run type-check`** and **`npm run lint:check`** (oxlint + eslint **without** `--fix`) before `vite build`. The build fails if TypeScript or lint errors exist.
 
-```bash
-docker build -f frontend/Dockerfile --target build -t medclinic-frontend-build ./frontend
-docker run --rm medclinic-frontend-build npm run type-check
-docker run --rm medclinic-frontend-build npm run lint
-```
-
-(`npm run build` / `docker compose build frontend` runs `build-only` in the Dockerfile, i.e. Vite production build; it does **not** run the full `package.json` `build` script that parallelizes `type-check` + `build-only`. Prefer an explicit `type-check` / `lint` run when validating TS and ESLint.)
+Locally with Node: `npm run type-check`, `npm run lint` (with `--fix`), or `npm run lint:check` to verify without mutating files.
 
 ### 2. Stack & structure
 
@@ -51,6 +45,7 @@ For each backend resource, create a typed client in `src/api/` using `http.ts`. 
 ### 6. Auth & role handling
 
 - `useAuthStore`: `isAuthenticated`, `roles`, `permissions`, `hasPermission(code)`, `canAccessAdmin`, `canManageRbac`. Router: `meta.public` (login only), `meta.adminOnly` (requires `canAccessAdmin`), `meta.permission` (single permission code). Use `authStore.hasPermission(code)` or `authStore.canAccessAdmin` for UI; backend enforces.
+- **Security baseline (non-negotiable):** access token and role/permission **snapshots stay in memory only** — not `localStorage`. Refresh uses **HttpOnly cookie** + `bootstrapAuth()` on startup. Before merging auth/HTTP/env/login changes, follow [`frontend/docs/security-baseline.md`](frontend/docs/security-baseline.md).
 
 ### 7. Avoid
 
