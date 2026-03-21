@@ -23,6 +23,15 @@ export default defineConfigWithVueTs(
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 
   {
+    name: 'app/security-vue',
+    files: ['**/*.{vue,ts,mts,tsx}'],
+    rules: {
+      // Prefer text interpolation; any HTML-from-API feature needs explicit review + sanitization (e.g. DOMPurify).
+      'vue/no-v-html': 'error',
+    },
+  },
+
+  {
     name: 'appointments/dialogs-shared-reactive-form',
     files: [
       'src/views/appointments/components/AppointmentCreateDialog.vue',
