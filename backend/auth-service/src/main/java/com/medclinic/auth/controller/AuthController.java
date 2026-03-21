@@ -62,6 +62,7 @@ public class AuthController {
     public ResponseEntity<Void> logout() {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
                 .httpOnly(true)
+                .secure(jwtProperties.isRefreshCookieSecure())
                 .path(COOKIE_PATH)
                 .maxAge(0)
                 .build();
@@ -73,6 +74,7 @@ public class AuthController {
     private ResponseCookie buildRefreshCookie(String value, long maxAgeMs) {
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE, value)
                 .httpOnly(true)
+                .secure(jwtProperties.isRefreshCookieSecure())
                 .path(COOKIE_PATH)
                 .sameSite("Lax")
                 .maxAge(Duration.ofMillis(maxAgeMs))

@@ -12,4 +12,7 @@ public class JwtProperties {
     private String secret;
     private long accessTokenExpiration;
     private long refreshTokenExpiration;
+
+    /** When true, refresh_token cookie is marked Secure (required for HTTPS production). */
+    private boolean refreshCookieSecure = false;
 }
