@@ -8,13 +8,16 @@ import Tooltip from 'primevue/tooltip'
 
 import App from './App.vue'
 import router from './router'
+import { bootstrapAuth } from '@/auth/bootstrapAuth'
 
 import 'primeicons/primeicons.css'
 import './assets/main.css'
 
 const app = createApp(App)
+const pinia = createPinia()
 
-app.use(createPinia())
+app.use(pinia)
+await bootstrapAuth()
 app.use(router)
 app.use(PrimeVue, {
   theme: {
