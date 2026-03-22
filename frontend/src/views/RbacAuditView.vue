@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
+import {
+  lazySortStateFromDataTable,
+  pageFromLazyFirst,
+  springSortFromPrime,
+} from '@/composables/useLazyPrimeTable'
 import { getRbacAuditLogs, type RbacAuditLog } from '@/api/rbac'
 import { useToast } from 'primevue/usetoast'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { formatDateTime } from '@/utils/formatting'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
+import type { DataTableSortEvent } from 'primevue/datatable'
 import InputText from 'primevue/inputtext'
 
 const toast = useToast()
@@ -24,21 +32,11 @@ const filters = reactive({
   action: '',
 })
 
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: { message?: string } }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
-
 async function loadAudit() {
   loading.value = true
   try {
-    const page = Math.floor(lazyParams.value.first / lazyParams.value.rows)
-    const sortField = lazyParams.value.sortField
-    const sortOrder = lazyParams.value.sortOrder
-    const sort =
-      sortField != null && sortOrder !== 0
-        ? `${sortField},${sortOrder === 1 ? 'asc' : 'desc'}`
-        : undefined
+    const page = pageFromLazyFirst(lazyParams.value.first, lazyParams.value.rows)
+    const sort = springSortFromPrime(lazyParams.value.sortField, lazyParams.value.sortOrder)
     const res = await getRbacAuditLogs(
       { page, size: lazyParams.value.rows, sort },
       {
@@ -52,7 +50,7 @@ async function loadAudit() {
     toast.add({
       severity: 'error',
       summary: 'Load failed',
-      detail: getErrorMessage(err, 'Unable to load audit logs.'),
+      detail: getApiErrorMessage(err, 'Unable to load audit logs.'),
     })
   } finally {
     loading.value = false
@@ -68,12 +66,13 @@ function onPage(event: { first: number; rows: number }) {
   void loadAudit()
 }
 
-function onSort(event: { sortField?: string; sortOrder?: number }) {
+function onSort(event: DataTableSortEvent) {
+  const { sortField, sortOrder } = lazySortStateFromDataTable(event)
   lazyParams.value = {
     first: 0,
     rows: lazyParams.value.rows,
-    sortField: event.sortField ?? null,
-    sortOrder: event.sortOrder ?? 0,
+    sortField,
+    sortOrder,
   }
   void loadAudit()
 }
@@ -83,24 +82,17 @@ function applyFilters() {
   void loadAudit()
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
-}
-
 onMounted(() => {
   void loadAudit()
 })
 </script>
 
 <template>
-  <div class="rbac-audit-page">
-    <div class="page-header">
+  <div class="mc-page rbac-audit-page">
+    <div class="mc-page-header">
       <div>
         <h1>Audit</h1>
-        <p class="page-subtitle">Track role and permission changes.</p>
+        <p class="mc-page-subtitle">Track role and permission changes.</p>
       </div>
     </div>
 
@@ -117,6 +109,8 @@ onMounted(() => {
     </div>
 
     <DataTable
+      class="audit-table"
+      :pt="{ tableContainer: { class: 'audit-datatable-scroll' } }"
       :value="rows"
       :loading="loading"
       :lazy="true"
@@ -125,7 +119,7 @@ onMounted(() => {
       paginator
       :rows="lazyParams.rows"
       :rowsPerPageOptions="[20, 50, 100]"
-      :sortField="lazyParams.sortField"
+      :sortField="lazyParams.sortField ?? undefined"
       :sortOrder="lazyParams.sortOrder"
       stripedRows
       removableSort
@@ -133,12 +127,12 @@ onMounted(() => {
       @sort="onSort"
     >
       <template #empty>
-        <div class="table-empty">No audit events found.</div>
+        <div class="mc-table-empty">No audit events found.</div>
       </template>
 
       <Column field="createdAt" header="When" sortable sortField="createdAt">
         <template #body="{ data }">
-          {{ formatDate(data.createdAt) }}
+          {{ formatDateTime(data.createdAt) }}
         </template>
       </Column>
       <Column field="actorUsername" header="Actor" sortable sortField="actorUsername" />
@@ -151,16 +145,6 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.rbac-audit-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.page-subtitle {
-  color: var(--p-text-muted-color);
-}
-
 .filters {
   display: flex;
   gap: 0.75rem;
@@ -175,9 +159,23 @@ onMounted(() => {
   min-width: 240px;
 }
 
-.table-empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--p-text-muted-color);
+/* Long details: scroll the grid only (not the paginator); keep each cell on one line. */
+.audit-datatable-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+
+.audit-table :deep(table) {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
+.audit-table :deep(thead th),
+.audit-table :deep(tbody td) {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
 </style>

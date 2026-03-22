@@ -1,5 +1,8 @@
 import http from './http'
-import type { Appointment } from './patients'
+import type { Appointment } from './appointments'
+import { buildListQuery, type ListParams, type PageResponse } from './types/pagination'
+
+export type { ListParams, PageResponse } from './types/pagination'
 
 export interface Doctor {
   id: number
@@ -31,20 +34,6 @@ export interface AuthUser {
   phone: string | null
 }
 
-export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
-export interface PageParams {
-  page?: number
-  size?: number
-  sort?: string
-}
-
 export function getAuthUser(userId: number): Promise<AuthUser> {
   return http.get<AuthUser>(`/auth/auth/users/${userId}`).then((res) => res.data)
 }
@@ -64,18 +53,10 @@ export function createEmployeeProfile(data: CreateEmployeeProfileRequest): Promi
     .then((res) => res.data)
 }
 
-export interface ListParams extends PageParams {
-  search?: string
-}
-
 export function getDoctors(params?: ListParams): Promise<PageResponse<Doctor>> {
-  const query: Record<string, unknown> = {
-    page: params?.page ?? 0,
-    size: params?.size ?? 20,
-  }
-  if (params?.sort != null) query.sort = params.sort
-  if (params?.search?.trim()) query.search = params.search.trim()
-  return http.get<PageResponse<Doctor>>('/main/employees', { params: query }).then((res) => res.data)
+  return http
+    .get<PageResponse<Doctor>>('/main/employees', { params: buildListQuery(params) })
+    .then((res) => res.data)
 }
 
 export function updateDoctor(id: number, data: UpdateDoctorRequest): Promise<Doctor> {

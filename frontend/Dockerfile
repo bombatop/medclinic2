@@ -6,6 +6,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+RUN npm run type-check && npm run lint:check
 ENV VITE_API_BASE_URL=/api
 RUN npm run build-only
 

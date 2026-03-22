@@ -1,7 +1,7 @@
 ---
 description: "Auth roles, user lifecycle, admin seeder, auth flows for MedClinic 2"
 alwaysApply: false
-globs: ["backend/auth-service/**/*", "frontend/src/stores/auth.ts", "frontend/src/api/users.ts", "frontend/src/api/rbac.ts", "frontend/src/views/LoginView.vue", "frontend/src/views/UsersView.vue", "frontend/src/views/ProfileView.vue", "frontend/src/views/RolesView.vue", "frontend/src/views/RolePermissionsView.vue", "frontend/src/views/RbacAuditView.vue", "frontend/src/router/**/*"]
+globs: ["backend/auth-service/**/*", "frontend/src/stores/auth.ts", "frontend/src/auth/**/*", "frontend/src/api/http.ts", "frontend/src/api/auth.ts", "frontend/src/main.ts", "frontend/src/api/users.ts", "frontend/src/api/rbac.ts", "frontend/src/views/LoginView.vue", "frontend/src/views/UsersView.vue", "frontend/src/views/ProfileView.vue", "frontend/src/views/RolesView.vue", "frontend/src/views/RolePermissionsView.vue", "frontend/src/views/RbacAuditView.vue", "frontend/src/router/**/*", "frontend/docs/security-baseline.md"]
 ---
 
 ## Domain: Auth & accounts
@@ -39,6 +39,10 @@ globs: ["backend/auth-service/**/*", "frontend/src/stores/auth.ts", "frontend/sr
 
 - **AdminSeeder** runs after **RbacSeeder**. If no user has ADMIN role, creates: username `admin`, password `admin`, email `admin@medclinic.local`.
 - To reset: see `docs/admin-reset.md` or `scripts/cleanup-reseed.ps1`.
+
+### Frontend security (paired with auth-service)
+
+- **Baseline checklist:** [`frontend/docs/security-baseline.md`](frontend/docs/security-baseline.md) — agents must not regress memory-only access tokens, HttpOnly refresh cookie, or env-based `JWT_SECRET` / production cookie `Secure` flag.
 
 ### Auth flows
 

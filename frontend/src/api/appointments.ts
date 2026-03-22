@@ -1,4 +1,7 @@
 import http from './http'
+import type { PageParams, PageResponse } from './types/pagination'
+
+export type { PageParams, PageResponse } from './types/pagination'
 
 export interface Appointment {
   id: number
@@ -21,20 +24,6 @@ export interface CreateAppointmentRequest {
   notes?: string
 }
 
-export interface PageResponse<T> {
-  content: T[]
-  totalElements: number
-  totalPages: number
-  number: number
-  size: number
-}
-
-export interface PageParams {
-  page?: number
-  size?: number
-  sort?: string
-}
-
 export interface AppointmentFilters {
   employeeId?: number | null
   clientId?: number | null
@@ -50,6 +39,7 @@ export function createAppointment(data: CreateAppointmentRequest): Promise<Appoi
 export function getAppointments(
   params?: PageParams,
   filters?: AppointmentFilters,
+  options?: { signal?: AbortSignal },
 ): Promise<PageResponse<Appointment>> {
   const query: Record<string, unknown> = {
     page: params?.page ?? 0,
@@ -61,7 +51,12 @@ export function getAppointments(
   if (filters?.status != null) query.status = filters.status
   if (filters?.from != null) query.from = filters.from
   if (filters?.to != null) query.to = filters.to
-  return http.get<PageResponse<Appointment>>('/main/appointments', { params: query }).then((res) => res.data)
+  return http
+    .get<PageResponse<Appointment>>('/main/appointments', {
+      params: query,
+      signal: options?.signal,
+    })
+    .then((res) => res.data)
 }
 
 export function getAppointment(id: number): Promise<Appointment> {

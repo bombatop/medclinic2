@@ -1,6 +1,9 @@
 import axios from 'axios'
+import ToastEventBus from 'primevue/toasteventbus'
 import { refresh } from './auth'
 import { useAuthStore } from '@/stores/auth'
+
+// Browser caching of authenticated /api JSON requires Cache-Control / ETag from the gateway and services.
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
@@ -18,7 +21,7 @@ function isAuthRequest(url: string) {
 }
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = useAuthStore().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -29,8 +32,19 @@ http.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    const status = error.response?.status
 
-    if (error.response?.status !== 401) {
+    if (status === 403) {
+      ToastEventBus.emit('add', {
+        severity: 'warn',
+        summary: 'Access denied',
+        detail: 'You do not have permission for this action.',
+        life: 5000,
+      })
+      return Promise.reject(error)
+    }
+
+    if (status !== 401) {
       return Promise.reject(error)
     }
 

@@ -59,7 +59,7 @@ public class RbacSeeder implements ApplicationRunner {
                 toCreate.add(PermissionEntity.builder()
                         .code(code)
                         .name(titleCaseCode(permission.code()))
-                        .description("Business action permission: " + permission.code())
+                        .description(permissionDescriptionForSeed(permission))
                         .active(true)
                         .system(true)
                         .build());
@@ -70,6 +70,14 @@ public class RbacSeeder implements ApplicationRunner {
             permissionRepository.saveAll(toCreate);
             log.info("RBAC seed inserted {} permissions", toCreate.size());
         }
+    }
+
+    /** Descriptions are omitted except for the one permission we document in the UI (tooltip). */
+    private static String permissionDescriptionForSeed(Permission permission) {
+        if (permission == Permission.APPOINTMENT_PARTICIPATE) {
+            return "Required alongside self-service appointment permissions so staff only see and change visits where they are the assigned doctor.";
+        }
+        return null;
     }
 
     private void seedRoles() {

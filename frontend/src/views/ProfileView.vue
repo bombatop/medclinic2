@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import type { ApiError, CurrentUser } from '@/api/auth'
+import type { CurrentUser } from '@/api/auth'
 import { changePassword, getCurrentUser, updateProfile } from '@/api/auth'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { formatDateTime } from '@/utils/formatting'
 import { isBlankInput } from '@/utils/validation'
 import { useToast } from 'primevue/usetoast'
 import Button from 'primevue/button'
@@ -36,10 +38,7 @@ const passwordForm = reactive({
 
 const createdAtLabel = computed(() => {
   if (!user.value?.createdAt) return 'N/A'
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(user.value.createdAt))
+  return formatDateTime(user.value.createdAt)
 })
 
 const displayRoles = computed(() => {
@@ -56,11 +55,6 @@ const profileDirty = computed(() => {
     profileForm.phone !== (user.value.phone ?? '')
   )
 })
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  const apiErr = err as { response?: { data?: ApiError }; message?: string }
-  return apiErr.response?.data?.message ?? apiErr.message ?? fallback
-}
 
 function syncFormFromUser() {
   if (!user.value) return
@@ -79,7 +73,7 @@ async function loadProfile() {
     toast.add({
       severity: 'error',
       summary: 'Profile unavailable',
-      detail: getErrorMessage(err, 'Unable to load your profile right now.'),
+      detail: getApiErrorMessage(err, 'Unable to load your profile right now.'),
     })
   } finally {
     loadingProfile.value = false
@@ -129,7 +123,7 @@ async function saveProfile() {
     toast.add({
       severity: 'error',
       summary: 'Update failed',
-      detail: getErrorMessage(err, 'Unable to save your profile right now.'),
+      detail: getApiErrorMessage(err, 'Unable to save your profile right now.'),
     })
   } finally {
     savingProfile.value = false
@@ -187,7 +181,7 @@ async function onChangePassword() {
     toast.add({
       severity: 'error',
       summary: 'Password update failed',
-      detail: getErrorMessage(err, 'Unable to change your password right now.'),
+      detail: getApiErrorMessage(err, 'Unable to change your password right now.'),
     })
   } finally {
     savingPassword.value = false

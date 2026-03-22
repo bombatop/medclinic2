@@ -30,3 +30,167 @@ h1 {
   font-weight: 600;
   margin-bottom: 0.5rem;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Shared layout primitives (admin list pages, dialogs) — use with mc- prefix */
+/* -------------------------------------------------------------------------- */
+
+.mc-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mc-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.mc-page-subtitle {
+  color: var(--p-text-muted-color);
+  max-width: 42rem;
+}
+
+.mc-search-field :deep(.p-inputtext),
+.mc-search-field .p-inputtext {
+  width: 100%;
+  max-width: 400px;
+}
+
+.mc-filters-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mc-filter-select,
+.mc-filter-date {
+  min-width: 140px;
+}
+
+.mc-toggle-group {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.mc-row-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.mc-table-empty,
+.mc-no-data {
+  text-align: center;
+  padding: 2rem;
+  color: var(--p-text-muted-color);
+}
+
+.mc-expansion-content {
+  padding: 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mc-expansion-content h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mc-loading-state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+  padding: 1rem 0;
+}
+
+.mc-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mc-dialog-form .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.mc-dialog-form .field label {
+  font-weight: 500;
+}
+
+.mc-field-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--p-text-muted-color);
+}
+
+.mc-duration-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.mc-detail-actions {
+  margin-top: 0.5rem;
+}
+
+.mc-text-muted {
+  color: var(--p-text-muted-color);
+}
+
+.mc-dialog-form .field :deep(.p-inputtext),
+.mc-dialog-form .field :deep(.p-select),
+.mc-dialog-form .field :deep(.p-password),
+.mc-dialog-form .field :deep(.p-textarea),
+.mc-dialog-form .field .p-inputtext,
+.mc-dialog-form .field .p-password,
+.mc-dialog-form .field .p-select,
+.mc-dialog-form .field .p-textarea {
+  width: 100%;
+}
+
+.mc-login-info {
+  background: var(--p-surface-100);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.mc-login-info-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+}
+
+.mc-login-info-row {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.mc-login-info-label {
+  color: var(--p-text-muted-color);
+  min-width: 3rem;
+}
+
+@media (max-width: 768px) {
+  .mc-page-header {
+    flex-direction: column;
+  }
+
+  .mc-search-field :deep(.p-inputtext),
+  .mc-search-field .p-inputtext {
+    max-width: none;
+  }
+}

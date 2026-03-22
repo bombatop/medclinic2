@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -14,7 +13,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('../views/HomeView.vue'),
     },
     {
       path: '/patients',
@@ -69,29 +68,25 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to) => {
   const authStore = useAuthStore()
   const isPublic = to.meta.public === true
   const isAdminOnly = to.meta.adminOnly === true
   const requiredPermission = typeof to.meta.permission === 'string' ? to.meta.permission : null
 
   if (isPublic && authStore.isAuthenticated) {
-    next({ name: 'home' })
-    return
+    return { name: 'home' }
   }
   if (!isPublic && !authStore.isAuthenticated) {
-    next({ name: 'login', query: { redirect: to.fullPath } })
-    return
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (isAdminOnly && !authStore.canAccessAdmin) {
-    next({ name: 'home' })
-    return
+    return { name: 'home' }
   }
   if (requiredPermission && !authStore.hasPermission(requiredPermission)) {
-    next({ name: 'home' })
-    return
+    return { name: 'home' }
   }
-  next()
+  return true
 })
 
 export default router

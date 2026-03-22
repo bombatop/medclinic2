@@ -10,6 +10,12 @@ globs: ["frontend/**/*.{vue,ts,js}"]
 
 After any change to frontend code, rebuild and restart: `docker compose build frontend && docker compose up -d frontend`. Never use `--with-dependencies` for frontend-only changes.
 
+The **running** `medclinic-frontend` container is **Nginx only** — there is no `node`/`npm` inside it. The Node toolchain exists only in the image **build** stage ([`frontend/Dockerfile`](frontend/Dockerfile): `FROM node:22-alpine AS build`).
+
+**Docker image build is gated:** `docker compose build frontend` runs **`npm run type-check`** and **`npm run lint:check`** (oxlint + eslint **without** `--fix`) before `vite build`. The build fails if TypeScript or lint errors exist.
+
+Locally with Node: `npm run type-check`, `npm run lint` (with `--fix`), or `npm run lint:check` to verify without mutating files.
+
 ### 2. Stack & structure
 
 - Vue 3 + TypeScript (script setup), PrimeVue (Aura), Pinia, Vue Router, Vite.
@@ -39,6 +45,7 @@ For each backend resource, create a typed client in `src/api/` using `http.ts`. 
 ### 6. Auth & role handling
 
 - `useAuthStore`: `isAuthenticated`, `roles`, `permissions`, `hasPermission(code)`, `canAccessAdmin`, `canManageRbac`. Router: `meta.public` (login only), `meta.adminOnly` (requires `canAccessAdmin`), `meta.permission` (single permission code). Use `authStore.hasPermission(code)` or `authStore.canAccessAdmin` for UI; backend enforces.
+- **Security baseline (non-negotiable):** access token and role/permission **snapshots stay in memory only** — not `localStorage`. Refresh uses **HttpOnly cookie** + `bootstrapAuth()` on startup. Before merging auth/HTTP/env/login changes, follow [`frontend/docs/security-baseline.md`](frontend/docs/security-baseline.md).
 
 ### 7. Avoid
 

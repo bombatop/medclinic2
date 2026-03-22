@@ -23,3 +23,6 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local secrets (e.g. JWT for docker compose / Spring)
+.env

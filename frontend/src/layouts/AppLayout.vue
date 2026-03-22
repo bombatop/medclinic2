@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { getCurrentUser } from '@/api/auth'
 import Menubar from 'primevue/menubar'
-import Toast from 'primevue/toast'
 import Button from 'primevue/button'
 import type { MenuItem } from 'primevue/menuitem'
 
@@ -65,7 +64,6 @@ const menuItems = computed<MenuItem[]>(() => {
 
 <template>
   <div class="app-layout">
-    <Toast />
     <Menubar :model="menuItems" class="app-menubar">
       <template #start>
         <span class="app-title">MedClinic</span>

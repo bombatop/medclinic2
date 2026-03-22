@@ -8,7 +8,8 @@ import { isBlankInput } from '@/utils/validation'
 import InputText from 'primevue/inputtext'
 import Password from 'primevue/password'
 import Button from 'primevue/button'
-import type { ApiError } from '@/api/auth'
+import { getApiErrorMessage } from '@/utils/apiError'
+import { safeRedirectAfterLogin } from '@/utils/navigation'
 
 const router = useRouter()
 const route = useRoute()
@@ -43,13 +44,12 @@ async function onSubmit() {
       summary: 'Welcome',
       detail: `Logged in as ${res.username}`,
     })
-    const redirect = (route.query.redirect as string) || '/'
-    router.replace(redirect)
+    router.replace(safeRedirectAfterLogin(route.query.redirect))
   } catch (err: unknown) {
-    const apiErr = err as { response?: { data?: ApiError; status?: number }; message?: string }
-    const message =
-      apiErr.response?.data?.message ??
-      (apiErr.response ? 'Invalid username or password' : 'Network error. Is the backend running?')
+    const isHttpError = typeof err === 'object' && err !== null && 'response' in err
+    const message = isHttpError
+      ? getApiErrorMessage(err, 'Invalid username or password')
+      : 'Network error. Is the backend running?'
     toast.add({
       severity: 'error',
       summary: 'Login failed',

@@ -39,12 +39,16 @@ medclinic2/
 
 ### Getting started
 
+Create a **`.env`** file in the project root (it is gitignored). Docker Compose reads it for **`JWT_SECRET`**, which must match between **api-gateway** and **auth-service**:
+
 ```bash
 git clone https://github.com/bombatop/medclinic2.git && cd medclinic2
+cp infrastructure/.env.example .env
+# Edit .env: set JWT_SECRET to a long random string (never commit .env)
 docker compose up -d --build
 ```
 
-That's it. Open http://localhost:3000 in your browser.
+Open http://localhost:3000 in your browser.
 
 ### Services
 
