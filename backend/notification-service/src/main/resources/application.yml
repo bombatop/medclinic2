@@ -12,14 +12,12 @@ spring:
   cloud:
     stream:
       bindings:
-        handleAppointmentEvent-in-0:
-          destination: appointment-events
         handleAppointmentReminder-in-0:
           destination: appointment-reminders
         handleAdminSecurityEvent-in-0:
           destination: admin-security-events
       function:
-        definition: handleAppointmentEvent;handleAppointmentReminder;handleAdminSecurityEvent
+        definition: handleAppointmentReminder;handleAdminSecurityEvent
 
 medclinic:
   telegram:

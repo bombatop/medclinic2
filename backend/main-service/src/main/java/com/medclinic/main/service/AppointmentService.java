@@ -3,7 +3,6 @@ package com.medclinic.main.service;
 import com.medclinic.main.dto.AppointmentResponse;
 import com.medclinic.main.dto.CreateAppointmentRequest;
 import com.medclinic.main.dto.UpdateAppointmentRequest;
-import com.medclinic.main.event.AppointmentEventPublisher;
 import com.medclinic.main.exception.ConflictException;
 import com.medclinic.main.exception.ResourceNotFoundException;
 import com.medclinic.main.model.Appointment;
@@ -30,7 +29,6 @@ public class AppointmentService {
     private final AppointmentRepository appointmentRepository;
     private final EmployeeRepository employeeRepository;
     private final ClientRepository clientRepository;
-    private final AppointmentEventPublisher eventPublisher;
 
     @Transactional
     public AppointmentResponse createAppointment(CreateAppointmentRequest request) {
@@ -64,7 +62,6 @@ public class AppointmentService {
                 .build();
 
         Appointment saved = appointmentRepository.save(appointment);
-        eventPublisher.publish(saved, "CREATED");
         return AppointmentResponse.from(saved);
     }
 
@@ -120,7 +117,6 @@ public class AppointmentService {
 
         appointment.setStatus(status);
         Appointment saved = appointmentRepository.save(appointment);
-        eventPublisher.publish(saved, "STATUS_" + status.name());
         return AppointmentResponse.from(saved);
     }
 
@@ -166,7 +162,6 @@ public class AppointmentService {
         }
 
         Appointment saved = appointmentRepository.save(appointment);
-        eventPublisher.publish(saved, "UPDATED");
         return AppointmentResponse.from(saved);
     }
 

@@ -21,8 +21,6 @@ spring:
   cloud:
     stream:
       bindings:
-        appointment-events:
-          destination: appointment-events
         appointment-reminders:
           destination: appointment-reminders
 

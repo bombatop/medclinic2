@@ -14,11 +14,11 @@ These rules describe **how** the backend is structured and how services should i
   - Each microservice is a Gradle subproject:
     - `auth-service` – authentication, JWT, users & roles
     - `main-service` – core clinic entities (patients/clients, employees, appointments)
-    - `notification-service` – reacts to events, currently logs notifications
+    - `notification-service` – consumes RabbitMQ events (e.g. Telegram for reminders and admin alerts)
     - `document-service` – placeholder for reports/exports
     - `eureka-server` – service discovery
     - `api-gateway` – edge gateway & routing
-    - `shared-lib` – shared DTOs and events (e.g. `AppointmentEvent`)
+    - `shared-lib` – shared DTOs and events (e.g. `AppointmentReminderEvent`, `AdminSecurityEvent`)
 
 ### 2. Configuration patterns
 
@@ -53,7 +53,7 @@ When adding settings:
 
 ### 4. Eventing
 
-- Shared event models live in `shared-lib` (e.g. `AppointmentEvent`).
+- Shared event models live in `shared-lib` (e.g. `AppointmentReminderEvent`, `AdminSecurityEvent`).
 - Publishers (e.g. in `main-service`) send events via Spring Cloud Stream `StreamBridge`.
 - Consumers (e.g. in `notification-service`) should:
   - Depend only on **shared-lib** for event types.
