@@ -107,6 +107,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-main:5432/main_service_db
       SPRING_RABBITMQ_HOST: rabbitmq
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      MEDCLINIC_REMINDERS_POLL_INTERVAL_MS: ${MEDCLINIC_REMINDERS_POLL_INTERVAL_MS:-120000}
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -125,6 +126,7 @@ services:
       - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_service_db
+      SPRING_RABBITMQ_HOST: rabbitmq
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       # Set in a root `.env` file (gitignored); see `infrastructure/.env.example`.
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required — copy infrastructure/.env.example to .env and set JWT_SECRET}
@@ -132,6 +134,8 @@ services:
       eureka-server:
         condition: service_healthy
       postgres-auth:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   notification-service:
@@ -145,6 +149,8 @@ services:
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID:-}
     depends_on:
       eureka-server:
         condition: service_healthy

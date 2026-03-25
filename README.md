@@ -26,7 +26,7 @@ medclinic2/
 │   ├── build.gradle.kts, settings.gradle.kts
 │   ├── main-service/           # CRUD: patients, appointments, doctors
 │   ├── auth-service/           # JWT authentication
-│   ├── notification-service/   # Email/SMS via RabbitMQ
+│   ├── notification-service/   # Telegram via RabbitMQ (reminders + admin alerts)
 │   ├── document-service/       # PDF/Excel reports
 │   ├── eureka-server/          # Service discovery
 │   ├── api-gateway/            # Routing + auth
@@ -84,6 +84,19 @@ docker compose up -d --build main-service
 # Start only infrastructure (databases + RabbitMQ)
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
+
+### Telegram notifications (optional)
+
+The **notification-service** consumes RabbitMQ events and calls the Telegram Bot API when configured.
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the **bot token**.
+2. Choose where **admin/security** messages go: a private chat with the bot, a group, or a channel. Send a message there, then read the numeric **chat id** (e.g. forward a message to [@userinfobot](https://t.me/userinfobot) or use `getUpdates` on your bot).
+3. Add to your root **`.env`** (used by Docker Compose):
+
+   - `TELEGRAM_BOT_TOKEN` — bot token (never commit it).
+   - `TELEGRAM_ADMIN_CHAT_ID` — chat id for RBAC alerts (new user, user roles changed, role permissions changed).
+
+**Patient reminders (24h / 1h):** In the UI, edit a patient: enable **Telegram appointment reminders** and set **Telegram chat id** (the patient must start your bot first so Telegram assigns an id). **main-service** schedules reminders and publishes `appointment-reminders` events; times use the JVM default timezone (see `medclinic.reminders` in [main-service application.yml](backend/main-service/src/main/resources/application.yml)).
 
 ### Default credentials
 
