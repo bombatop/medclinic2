@@ -12,6 +12,8 @@ export interface Patient {
   phone: string
   email: string | null
   notes: string | null
+  receiveAppointmentReminders: boolean
+  telegramChatId: string | null
   createdAt: string
 }
 
@@ -21,6 +23,8 @@ export interface CreatePatientRequest {
   phone: string
   email?: string
   notes?: string
+  receiveAppointmentReminders?: boolean
+  telegramChatId?: string
 }
 
 export interface UpdatePatientRequest {
@@ -29,6 +33,8 @@ export interface UpdatePatientRequest {
   phone?: string
   email?: string
   notes?: string
+  receiveAppointmentReminders?: boolean
+  telegramChatId?: string
 }
 
 export function getPatients(params?: ListParams): Promise<PageResponse<Patient>> {

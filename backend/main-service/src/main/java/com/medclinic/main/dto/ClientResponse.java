@@ -11,6 +11,8 @@ public record ClientResponse(
         String phone,
         String email,
         String notes,
+        boolean receiveAppointmentReminders,
+        String telegramChatId,
         Instant createdAt
 ) {
     public static ClientResponse from(Client client) {
@@ -21,6 +23,8 @@ public record ClientResponse(
                 client.getPhone(),
                 client.getEmail(),
                 client.getNotes(),
+                client.isReceiveAppointmentReminders(),
+                client.getTelegramChatId(),
                 client.getCreatedAt()
         );
     }

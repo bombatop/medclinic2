@@ -7,5 +7,7 @@ public record CreateClientRequest(
         @NotBlank String lastName,
         @NotBlank String phone,
         String email,
-        String notes
+        String notes,
+        Boolean receiveAppointmentReminders,
+        String telegramChatId
 ) {}

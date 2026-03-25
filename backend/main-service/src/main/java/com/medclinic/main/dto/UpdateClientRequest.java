@@ -5,5 +5,7 @@ public record UpdateClientRequest(
         String lastName,
         String phone,
         String email,
-        String notes
+        String notes,
+        Boolean receiveAppointmentReminders,
+        String telegramChatId
 ) {}

@@ -29,6 +29,8 @@ public class ClientService {
                 .phone(request.phone())
                 .email(request.email())
                 .notes(request.notes())
+                .receiveAppointmentReminders(Boolean.TRUE.equals(request.receiveAppointmentReminders()))
+                .telegramChatId(blankToNull(request.telegramChatId()))
                 .build();
 
         return ClientResponse.from(clientRepository.save(client));
@@ -85,6 +87,12 @@ public class ClientService {
         if (request.notes() != null) {
             client.setNotes(request.notes().isBlank() ? null : request.notes());
         }
+        if (request.receiveAppointmentReminders() != null) {
+            client.setReceiveAppointmentReminders(request.receiveAppointmentReminders());
+        }
+        if (request.telegramChatId() != null) {
+            client.setTelegramChatId(blankToNull(request.telegramChatId()));
+        }
 
         return ClientResponse.from(clientRepository.save(client));
     }
@@ -94,5 +102,9 @@ public class ClientService {
         Client client = clientRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Client not found"));
         clientRepository.delete(client);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 }

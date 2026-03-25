@@ -33,6 +33,7 @@ import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import Tag from 'primevue/tag'
 import Textarea from 'primevue/textarea'
+import Checkbox from 'primevue/checkbox'
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -63,6 +64,8 @@ const form = reactive({
   phone: '',
   email: '',
   notes: '',
+  receiveAppointmentReminders: false,
+  telegramChatId: '',
 })
 
 async function loadPatients() {
@@ -119,6 +122,8 @@ function openCreateDialog() {
   form.phone = ''
   form.email = ''
   form.notes = ''
+  form.receiveAppointmentReminders = false
+  form.telegramChatId = ''
   dialogVisible.value = true
 }
 
@@ -130,6 +135,8 @@ function openEditDialog(patient: Patient) {
   form.phone = patient.phone
   form.email = patient.email ?? ''
   form.notes = patient.notes ?? ''
+  form.receiveAppointmentReminders = patient.receiveAppointmentReminders
+  form.telegramChatId = patient.telegramChatId ?? ''
   dialogVisible.value = true
 }
 
@@ -155,6 +162,8 @@ async function savePatient() {
       phone: form.phone.trim(),
       email: form.email.trim(),
       notes: form.notes.trim(),
+      receiveAppointmentReminders: form.receiveAppointmentReminders,
+      telegramChatId: form.telegramChatId.trim(),
     }
 
     if (dialogMode.value === 'create') {
@@ -162,6 +171,7 @@ async function savePatient() {
         ...trimmed,
         email: trimmed.email || undefined,
         notes: trimmed.notes || undefined,
+        telegramChatId: trimmed.telegramChatId || undefined,
       }
       const created = await createPatient(data)
       totalRecords.value += 1
@@ -173,7 +183,12 @@ async function savePatient() {
       })
       referenceDataStore.invalidateDoctorsPatients()
     } else {
-      const updated = await updatePatient(editingPatientId.value!, trimmed)
+      const updated = await updatePatient(editingPatientId.value!, {
+        ...trimmed,
+        email: trimmed.email || undefined,
+        notes: trimmed.notes || undefined,
+        telegramChatId: trimmed.telegramChatId,
+      })
       const idx = patients.value.findIndex((p) => p.id === updated.id)
       if (idx >= 0) patients.value[idx] = updated
       toast.add({
@@ -407,6 +422,29 @@ onMounted(() => {
           <label for="dlg-notes">Notes</label>
           <Textarea id="dlg-notes" v-model="form.notes" :disabled="savingPatient" rows="3" autoResize />
         </div>
+        <div class="field field-checkbox">
+          <Checkbox
+            id="dlg-reminders"
+            v-model="form.receiveAppointmentReminders"
+            binary
+            :disabled="savingPatient"
+          />
+          <label for="dlg-reminders" class="checkbox-label"
+            >Telegram appointment reminders (1h / 24h before visit)</label
+          >
+        </div>
+        <div class="field">
+          <label for="dlg-telegram">Telegram chat ID</label>
+          <InputText
+            id="dlg-telegram"
+            v-model="form.telegramChatId"
+            :disabled="savingPatient"
+            placeholder="Numeric ID after patient starts your bot"
+          />
+          <small class="field-hint"
+            >Required for reminders: patient must message the bot first; paste their chat id here.</small
+          >
+        </div>
       </div>
 
       <template #footer>
@@ -446,5 +484,23 @@ onMounted(() => {
 
 .dialog-form .field label {
   font-weight: 500;
+}
+
+.field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.checkbox-label {
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
 }
 </style>

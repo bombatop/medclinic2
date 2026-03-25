@@ -31,6 +31,13 @@ public class Client {
 
     private String email;
 
+    /** Telegram numeric chat id for bot messages; optional. */
+    private String telegramChatId;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean receiveAppointmentReminders = false;
+
     private String notes;
 
     @Column(nullable = false, updatable = false)
