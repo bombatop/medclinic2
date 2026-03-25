@@ -11,8 +11,10 @@ import com.medclinic.auth.exception.ResourceNotFoundException;
 import com.medclinic.auth.model.Role;
 import com.medclinic.auth.model.RoleAssignmentAudit;
 import com.medclinic.auth.model.User;
+import com.medclinic.auth.event.AdminSecurityEventPublisher;
 import com.medclinic.auth.repository.RoleAssignmentAuditRepository;
 import com.medclinic.auth.repository.UserRepository;
+import com.medclinic.shared.event.AdminSecurityEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +24,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +38,7 @@ public class UserService {
     private final RbacService rbacService;
     private final RbacAdminService rbacAdminService;
     private final PasswordEncoder passwordEncoder;
+    private final AdminSecurityEventPublisher adminSecurityEventPublisher;
 
     @Transactional
     public UserResponse createUser(CreateUserRequest request, String actorUsername, Long actorUserId) {
@@ -57,8 +61,17 @@ public class UserService {
                 .build();
 
         User saved = userRepository.save(user);
+        String auditDetails = "username=" + saved.getUsername() + ";roles=" + rbacService.joinRoles(roles);
         rbacAdminService.logAudit(actorUsername, actorUserId, "USER_CREATED", "USER",
-                String.valueOf(saved.getId()), "username=" + saved.getUsername() + ";roles=" + rbacService.joinRoles(roles));
+                String.valueOf(saved.getId()), auditDetails);
+        adminSecurityEventPublisher.publish(new AdminSecurityEvent(
+                "USER_CREATED",
+                actorUsername,
+                saved.getUsername(),
+                null,
+                auditDetails,
+                Instant.now()
+        ));
         return UserResponse.from(saved);
     }
 
@@ -207,14 +220,23 @@ public class UserService {
                 .rolesAfter(rbacService.joinRoles(afterRoles))
                 .build();
         roleAssignmentAuditRepository.save(audit);
+        String roleDetails = "before=" + rbacService.joinRoles(beforeRoles) + ";after=" + rbacService.joinRoles(afterRoles);
         rbacAdminService.logAudit(
                 actorUsername,
                 actorId,
                 "USER_ROLES_UPDATED",
                 "USER",
                 String.valueOf(user.getId()),
-                "before=" + rbacService.joinRoles(beforeRoles) + ";after=" + rbacService.joinRoles(afterRoles)
+                roleDetails
         );
+        adminSecurityEventPublisher.publish(new AdminSecurityEvent(
+                "USER_ROLES_UPDATED",
+                actorUsername,
+                user.getUsername(),
+                null,
+                roleDetails,
+                Instant.now()
+        ));
 
         return new UserRolesResponse(user.getId(), user.getUsername(), rbacService.toRoleCodes(afterRoles));
     }

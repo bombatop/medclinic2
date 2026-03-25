@@ -13,6 +13,16 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  cloud:
+    stream:
+      bindings:
+        admin-security-events:
+          destination: admin-security-events
 
 jwt:
   # Set JWT_SECRET in the environment (see infrastructure/.env.example). Same value as api-gateway.

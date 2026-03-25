@@ -12,7 +12,9 @@ import com.medclinic.auth.repository.PermissionEntityRepository;
 import com.medclinic.auth.repository.RbacAuditLogRepository;
 import com.medclinic.auth.repository.RolePermissionRepository;
 import com.medclinic.auth.repository.RoleRepository;
+import com.medclinic.auth.event.AdminSecurityEventPublisher;
 import com.medclinic.auth.repository.UserRepository;
+import com.medclinic.shared.event.AdminSecurityEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -38,6 +40,7 @@ public class RbacAdminService {
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRepository userRepository;
     private final RbacAuditLogRepository rbacAuditLogRepository;
+    private final AdminSecurityEventPublisher adminSecurityEventPublisher;
 
     @Transactional(readOnly = true)
     public Page<RoleResponse> getRoles(String search, Pageable pageable) {
@@ -187,8 +190,17 @@ public class RbacAdminService {
         }
 
         List<String> afterCodes = requestedCodes.stream().sorted().toList();
+        String permDetails = "before=" + String.join(",", beforeCodes) + ";after=" + String.join(",", afterCodes);
         logAudit(actorUsername, actorUserId, "ROLE_PERMISSIONS_UPDATED", TARGET_ROLE_PERMISSION, role.getCode(),
-                "before=" + String.join(",", beforeCodes) + ";after=" + String.join(",", afterCodes));
+                permDetails);
+        adminSecurityEventPublisher.publish(new AdminSecurityEvent(
+                "ROLE_PERMISSIONS_UPDATED",
+                actorUsername,
+                null,
+                role.getCode(),
+                beforeCodes.size() + " -> " + afterCodes.size() + " permission(s)",
+                Instant.now()
+        ));
 
         return new RolePermissionsResponse(role.getId(), role.getCode(), afterCodes);
     }
