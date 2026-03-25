@@ -23,6 +23,16 @@ spring:
       bindings:
         appointment-events:
           destination: appointment-events
+        appointment-reminders:
+          destination: appointment-reminders
+
+medclinic:
+  reminders:
+    windows:
+      - H24
+      - H1
+    window-half-width-minutes: 6
+    poll-interval-ms: 120000
 
 logging:
   level:

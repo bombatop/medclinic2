@@ -133,6 +133,9 @@ public class AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found"));
 
+        LocalDateTime previousStart = appointment.getStartTime();
+        Long previousClientId = appointment.getClient().getId();
+
         Employee employee = employeeRepository.findById(request.employeeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Employee not found"));
 
@@ -156,6 +159,11 @@ public class AppointmentService {
         appointment.setStartTime(request.startTime());
         appointment.setEndTime(request.endTime());
         appointment.setNotes(request.notes());
+
+        if (!previousStart.equals(request.startTime()) || !previousClientId.equals(client.getId())) {
+            appointment.setReminder24hSentAt(null);
+            appointment.setReminder1hSentAt(null);
+        }
 
         Appointment saved = appointmentRepository.save(appointment);
         eventPublisher.publish(saved, "UPDATED");

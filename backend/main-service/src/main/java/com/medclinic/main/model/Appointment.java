@@ -41,6 +41,12 @@ public class Appointment {
 
     private String notes;
 
+    /** Set when a 24h Telegram reminder was dispatched (claim-before-send). */
+    private Instant reminder24hSentAt;
+
+    /** Set when a 1h Telegram reminder was dispatched. */
+    private Instant reminder1hSentAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
