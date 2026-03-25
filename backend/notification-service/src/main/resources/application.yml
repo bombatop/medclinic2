@@ -14,8 +14,17 @@ spring:
       bindings:
         handleAppointmentEvent-in-0:
           destination: appointment-events
+        handleAppointmentReminder-in-0:
+          destination: appointment-reminders
+        handleAdminSecurityEvent-in-0:
+          destination: admin-security-events
       function:
-        definition: handleAppointmentEvent
+        definition: handleAppointmentEvent;handleAppointmentReminder;handleAdminSecurityEvent
+
+medclinic:
+  telegram:
+    bot-token: ${TELEGRAM_BOT_TOKEN:}
+    admin-chat-id: ${TELEGRAM_ADMIN_CHAT_ID:}
 
 logging:
   level:
